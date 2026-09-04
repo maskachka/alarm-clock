@@ -36,7 +36,7 @@ void ClockDisplayController::refresh() {
 }
 
 void ClockDisplayController::onTimer(lv_timer_t *timer) {
-  auto *controller = static_cast<ClockDisplayController *>(timer->user_data);
+  auto *controller = static_cast<ClockDisplayController *>(lv_timer_get_user_data(timer));
   if (controller == nullptr) {
     return;
   }

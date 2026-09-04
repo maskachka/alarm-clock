@@ -3,6 +3,7 @@
 #include <lvgl.h>
 
 #include "alarm_buzzer.h"
+#include "clock_app_controller.h"
 #include "alarm_service.h"
 #include "clock_service.h"
 
@@ -14,24 +15,25 @@ public:
 
 private:
   static void onPrimaryButtonPressed(lv_event_t *event);
+  static void onToggleAlarmPressed(lv_event_t *event);
   static void onApplyAlarmPressed(lv_event_t *event);
-  static void onDisableAlarmPressed(lv_event_t *event);
   static void onCancelAlarmPressed(lv_event_t *event);
   static void onRefreshTimer(lv_timer_t *timer);
 
   void refresh();
-  void showAlarmEditor();
-  void hideAlarmEditor();
-  void syncEditorToAlarm();
-  void updateAlarmButtonLabel();
-  void stopAlarm();
+  void applyControllerState();
+  void applyControllerEffects(const ClockAppEffects &effects);
   void applyAlarmFromEditor();
+  void setClockDisplayText(const char *text);
 
   ClockService &clock_service_;
-  AlarmService &alarm_service_;
   AlarmBuzzer &alarm_buzzer_;
-  lv_obj_t *clock_label_;
+  ClockAppController controller_;
+  lv_obj_t *clock_character_labels_[5];
+  lv_obj_t *primary_button_;
   lv_obj_t *primary_button_label_;
+  lv_obj_t *alarm_time_label_;
+  lv_obj_t *alarm_checkbox_;
   lv_obj_t *alarm_editor_overlay_;
   lv_obj_t *alarm_hour_roller_;
   lv_obj_t *alarm_minute_roller_;
