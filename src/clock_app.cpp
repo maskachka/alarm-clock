@@ -20,13 +20,14 @@ namespace
   constexpr int32_t kEditorDialogWidth = 288;
   constexpr int32_t kEditorDialogHeight = 220;
   constexpr int32_t kEditorRollerWidth = 104;
-  constexpr int32_t kEditorRollerHeight = 108;
+  constexpr int32_t kEditorRollerHeight = 96;
 
   struct ButtonStyle
   {
     uint32_t background_hex;
     uint32_t text_hex;
     int32_t radius;
+    const lv_font_t *font;
   };
 
   struct ButtonSize
@@ -41,8 +42,8 @@ namespace
     lv_obj_t *label;
   };
 
-  constexpr ButtonStyle kPrimaryButtonStyle{0x2D8CF0, 0xFFFFFF, 14};
-  constexpr ButtonStyle kSecondaryButtonStyle{0xD9E2EC, 0x1F2933, 14};
+  constexpr ButtonStyle kPrimaryButtonStyle{0x2D8CF0, 0xFFFFFF, 14, &lv_font_montserrat_16};
+  constexpr ButtonStyle kSecondaryButtonStyle{0xD9E2EC, 0x1F2933, 14, &lv_font_montserrat_16};
   constexpr ButtonSize kAlarmControlButtonSize{68, 38};
   constexpr ButtonSize kEditorActionButtonSize{96, 42};
   constexpr char kHourOptions[] =
@@ -58,13 +59,14 @@ namespace
   }
 
   ButtonElements createButton(lv_obj_t *parent, const char *text, const ButtonStyle &style, const ButtonSize &size,
-                               lv_event_cb_t click_handler, void *event_user_data)
+                              lv_event_cb_t click_handler, void *event_user_data)
   {
     lv_obj_t *button = lv_button_create(parent);
     lv_obj_set_size(button, size.width, size.height);
     lv_obj_set_style_radius(button, style.radius, 0);
     lv_obj_set_style_bg_color(button, lv_color_hex(style.background_hex), 0);
     lv_obj_set_style_text_color(button, lv_color_hex(style.text_hex), 0);
+    lv_obj_set_style_text_font(button, style.font, 0);
     lv_obj_add_event_cb(button, click_handler, LV_EVENT_CLICKED, event_user_data);
 
     lv_obj_t *label = lv_label_create(button);
@@ -153,7 +155,7 @@ void ClockApp::build()
   lv_obj_set_style_text_color(alarm_time_label_, lv_color_hex(0x1F2933), 0);
 
   const ButtonElements primary_button = createButton(alarm_group, "", kPrimaryButtonStyle, kAlarmControlButtonSize,
-                                                      onPrimaryButtonPressed, this);
+                                                     onPrimaryButtonPressed, this);
   primary_button_ = primary_button.button;
   primary_button_label_ = primary_button.label;
 
@@ -202,7 +204,7 @@ void ClockApp::build()
   lv_obj_set_style_border_width(editor_dialog, 0, 0);
   lv_obj_set_style_radius(editor_dialog, 24, 0);
   lv_obj_set_style_pad_top(editor_dialog, 8, 0);
-  lv_obj_set_style_pad_bottom(editor_dialog, 18, 0);
+  lv_obj_set_style_pad_bottom(editor_dialog, 8, 0);
   lv_obj_set_style_pad_left(editor_dialog, 18, 0);
   lv_obj_set_style_pad_right(editor_dialog, 18, 0);
   lv_obj_set_style_pad_row(editor_dialog, 16, 0);
