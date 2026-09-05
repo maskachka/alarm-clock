@@ -254,13 +254,13 @@ void testControllerCancelHidesEditorWithoutChangingAlarm() {
   TEST_ASSERT_FALSE(alarm_service.isEnabled());
 }
 
-} // namespace
+}  // namespace
 
 void setUp() {}
 
 void tearDown() {}
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
 

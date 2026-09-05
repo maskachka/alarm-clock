@@ -12,13 +12,10 @@
 #include <time.h>
 #endif
 
-ClockService::ClockService(const char *tz_string, const char *ntp_primary, const char *ntp_secondary)
-    : tz_string_(tz_string),
-      ntp_primary_(ntp_primary),
-      ntp_secondary_(ntp_secondary),
-      synchronized_(false) {}
+ClockService::ClockService(const char* tz_string, const char* ntp_primary, const char* ntp_secondary)
+    : tz_string_(tz_string), ntp_primary_(ntp_primary), ntp_secondary_(ntp_secondary), synchronized_(false) {}
 
-void ClockService::begin(const char *wifi_ssid, const char *wifi_password, uint32_t wifi_timeout_ms) {
+void ClockService::begin(const char* wifi_ssid, const char* wifi_password, uint32_t wifi_timeout_ms) {
 #if defined(ARDUINO)
   if (wifi_ssid == nullptr || strlen(wifi_ssid) == 0) {
     Serial.println("ClockService: WIFI_SSID is empty. Skipping Wi-Fi/NTP setup.");
@@ -68,7 +65,7 @@ void ClockService::begin(const char *wifi_ssid, const char *wifi_password, uint3
 #endif
 }
 
-bool ClockService::getCurrentTime(ClockTime &out_time) {
+bool ClockService::getCurrentTime(ClockTime& out_time) {
 #if defined(ARDUINO)
   struct tm local_time;
   if (!getLocalTime(&local_time, 50)) {
@@ -102,6 +99,4 @@ bool ClockService::getCurrentTime(ClockTime &out_time) {
 #endif
 }
 
-bool ClockService::isSynchronized() const {
-  return synchronized_;
-}
+bool ClockService::isSynchronized() const { return synchronized_; }

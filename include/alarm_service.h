@@ -5,8 +5,20 @@
 #include "clock_time.h"
 
 class AlarmService {
-public:
+ public:
+  static constexpr uint8_t kMaxAlarms = 4;
+
   AlarmService();
+
+  uint8_t count() const;
+  void setAlarm(uint8_t index, uint8_t hour, uint8_t minute);
+  void setEnabled(uint8_t index, bool enabled);
+  void dismiss(uint8_t index);
+  bool isEnabled(uint8_t index) const;
+  bool isRinging(uint8_t index) const;
+  bool hasRingingAlarm() const;
+  uint8_t hour(uint8_t index) const;
+  uint8_t minute(uint8_t index) const;
 
   void setAlarm(uint8_t hour, uint8_t minute);
   void setEnabled(bool enabled);
@@ -17,13 +29,22 @@ public:
   uint8_t hour() const;
   uint8_t minute() const;
 
-  bool update(const ClockTime &now);
+  bool update(const ClockTime& now);
 
-private:
-  uint8_t hour_;
-  uint8_t minute_;
+ private:
+  struct Alarm {
+    uint8_t hour;
+    uint8_t minute;
+    bool enabled;
+    bool ringing;
+    bool triggered_for_current_minute;
+  };
+
+  bool isValidIndex(uint8_t index) const;
+  Alarm& alarm(uint8_t index);
+  const Alarm& alarm(uint8_t index) const;
+
+  Alarm alarms_[kMaxAlarms];
+  uint8_t count_;
   int16_t last_checked_minute_;
-  bool enabled_;
-  bool ringing_;
-  bool triggered_for_current_minute_;
 };

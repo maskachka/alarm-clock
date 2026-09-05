@@ -10,15 +10,15 @@
 #include "clock_service.h"
 #include "display_configuration.h"
 
-static constexpr const char *kTimezone = "PST8PDT,M3.2.0/2,M11.1.0/2";
-static constexpr const char *kNtpServer = "pool.ntp.org";
+static constexpr const char* kTimezone = "PST8PDT,M3.2.0/2,M11.1.0/2";
+static constexpr const char* kNtpServer = "pool.ntp.org";
 static constexpr int32_t kDesktopWindowWidth = 360;
 static constexpr int32_t kDesktopWindowHeight = 240;
 
 int main() {
   lv_init();
 
-  lv_display_t *display = lv_x11_window_create("Alarm Clock UI", kDesktopWindowWidth, kDesktopWindowHeight);
+  lv_display_t* display = lv_x11_window_create("Alarm Clock UI", kDesktopWindowWidth, kDesktopWindowHeight);
   if (display == nullptr) {
     return 1;
   }

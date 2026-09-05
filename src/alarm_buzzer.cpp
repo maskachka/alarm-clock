@@ -4,13 +4,9 @@
 
 void SilentAlarmBuzzer::begin() {}
 
-void SilentAlarmBuzzer::start() {
-  printf("Alarm buzzer: start\n");
-}
+void SilentAlarmBuzzer::start() { printf("Alarm buzzer: start\n"); }
 
-void SilentAlarmBuzzer::stop() {
-  printf("Alarm buzzer: stop\n");
-}
+void SilentAlarmBuzzer::stop() { printf("Alarm buzzer: stop\n"); }
 
 void SilentAlarmBuzzer::update() {}
 
@@ -21,7 +17,7 @@ namespace {
 constexpr unsigned long kNoteDurationMs = 180;
 constexpr int kMelody[] = {523, 659, 784, 1047};
 constexpr size_t kMelodyLength = sizeof(kMelody) / sizeof(kMelody[0]);
-} // namespace
+}  // namespace
 
 Esp32PassiveBuzzer::Esp32PassiveBuzzer(int pin, int channel)
     : pin_(pin), channel_(channel), last_note_change_ms_(0), note_index_(0), active_(false), initialized_(false) {}

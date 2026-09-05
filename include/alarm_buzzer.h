@@ -1,7 +1,7 @@
 #pragma once
 
 class AlarmBuzzer {
-public:
+ public:
   virtual ~AlarmBuzzer() = default;
 
   virtual void begin() = 0;
@@ -11,7 +11,7 @@ public:
 };
 
 class SilentAlarmBuzzer : public AlarmBuzzer {
-public:
+ public:
   void begin() override;
   void start() override;
   void stop() override;
@@ -20,7 +20,7 @@ public:
 
 #if defined(ARDUINO)
 class Esp32PassiveBuzzer : public AlarmBuzzer {
-public:
+ public:
   explicit Esp32PassiveBuzzer(int pin, int channel = 0);
 
   void begin() override;
@@ -28,7 +28,7 @@ public:
   void stop() override;
   void update() override;
 
-private:
+ private:
   void playCurrentNote();
 
   int pin_;

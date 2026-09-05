@@ -2,12 +2,10 @@
 
 #include "clock_formatter.h"
 
-ClockDisplayController::ClockDisplayController(ClockService &clock_service)
+ClockDisplayController::ClockDisplayController(ClockService& clock_service)
     : clock_service_(clock_service), label_(nullptr), timer_(nullptr) {}
 
-void ClockDisplayController::attachLabel(lv_obj_t *label) {
-  label_ = label;
-}
+void ClockDisplayController::attachLabel(lv_obj_t* label) { label_ = label; }
 
 void ClockDisplayController::begin(uint32_t update_period_ms) {
   if (timer_ != nullptr) {
@@ -35,8 +33,8 @@ void ClockDisplayController::refresh() {
   lv_label_set_text(label_, clock_text);
 }
 
-void ClockDisplayController::onTimer(lv_timer_t *timer) {
-  auto *controller = static_cast<ClockDisplayController *>(lv_timer_get_user_data(timer));
+void ClockDisplayController::onTimer(lv_timer_t* timer) {
+  auto* controller = static_cast<ClockDisplayController*>(lv_timer_get_user_data(timer));
   if (controller == nullptr) {
     return;
   }

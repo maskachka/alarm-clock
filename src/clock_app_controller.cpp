@@ -5,12 +5,18 @@
 
 #include "clock_formatter.h"
 
-ClockAppController::ClockAppController(AlarmService &alarm_service) : alarm_service_(alarm_service), buzzer_active_(false) {
+ClockAppController::ClockAppController(AlarmService& alarm_service)
+    : alarm_service_(alarm_service), buzzer_active_(false), active_alarm_index_(0) {
   state_.clock_text[0] = '\0';
   state_.alarm_text[0] = '\0';
   state_.primary_button_text[0] = '\0';
   state_.alarm_enabled = false;
   state_.editor_visible = false;
+}
+
+void ClockAppController::selectAlarm(uint8_t index) {
+  if (index < alarm_service_.count()) active_alarm_index_ = index;
+  updateButtonLabels();
 }
 
 void ClockAppController::initialize() {
@@ -20,7 +26,7 @@ void ClockAppController::initialize() {
   updateButtonLabels();
 }
 
-ClockAppEffects ClockAppController::refresh(bool has_time, const ClockTime &now) {
+ClockAppEffects ClockAppController::refresh(bool has_time, const ClockTime& now) {
   ClockAppEffects effects = makeNoEffects();
 
   if (!has_time) {
@@ -35,7 +41,7 @@ ClockAppEffects ClockAppController::refresh(bool has_time, const ClockTime &now)
     buzzer_active_ = true;
   }
 
-  if (alarm_service_.isRinging()) {
+  if (alarm_service_.isRinging(active_alarm_index_)) {
     if (!buzzer_active_) {
       effects.start_buzzer = true;
       buzzer_active_ = true;
@@ -53,12 +59,12 @@ ClockAppEffects ClockAppController::refresh(bool has_time, const ClockTime &now)
 ClockAppEffects ClockAppController::onPrimaryButtonPressed() {
   ClockAppEffects effects = makeNoEffects();
 
-  if (alarm_service_.isRinging()) {
+  if (alarm_service_.hasRingingAlarm()) {
     if (buzzer_active_) {
       effects.stop_buzzer = true;
       buzzer_active_ = false;
     }
-    alarm_service_.dismiss();
+    alarm_service_.dismiss(active_alarm_index_);
     updateButtonLabels();
     return effects;
   }
@@ -70,14 +76,14 @@ ClockAppEffects ClockAppController::onPrimaryButtonPressed() {
 ClockAppEffects ClockAppController::onToggleAlarmPressed() {
   ClockAppEffects effects = makeNoEffects();
 
-  if (alarm_service_.isEnabled()) {
-    alarm_service_.setEnabled(false);
+  if (alarm_service_.isEnabled(active_alarm_index_)) {
+    alarm_service_.setEnabled(active_alarm_index_, false);
     if (buzzer_active_) {
       effects.stop_buzzer = true;
       buzzer_active_ = false;
     }
   } else {
-    alarm_service_.setEnabled(true);
+    alarm_service_.setEnabled(active_alarm_index_, true);
   }
 
   updateButtonLabels();
@@ -85,7 +91,7 @@ ClockAppEffects ClockAppController::onToggleAlarmPressed() {
 }
 
 ClockAppEffects ClockAppController::onApplyAlarmPressed(uint8_t selected_hour, uint8_t selected_minute) {
-  alarm_service_.setAlarm(selected_hour, selected_minute);
+  alarm_service_.setAlarm(active_alarm_index_, selected_hour, selected_minute);
   state_.editor_visible = false;
   updateButtonLabels();
   return makeNoEffects();
@@ -96,9 +102,7 @@ ClockAppEffects ClockAppController::onCancelAlarmPressed() {
   return makeNoEffects();
 }
 
-const ClockAppState &ClockAppController::state() const {
-  return state_;
-}
+const ClockAppState& ClockAppController::state() const { return state_; }
 
 ClockAppEffects ClockAppController::makeNoEffects() {
   ClockAppEffects effects = {};
@@ -116,27 +120,28 @@ void ClockAppController::setClockUnavailable() {
   state_.clock_text[sizeof(state_.clock_text) - 1] = '\0';
 }
 
-void ClockAppController::setClockText(const ClockTime &time_value) {
+void ClockAppController::setClockText(const ClockTime& time_value) {
   ClockFormatter::formatHHMM(time_value, state_.clock_text, sizeof(state_.clock_text));
 }
 
 void ClockAppController::updateButtonLabels() {
-  const ClockTime alarm_time = {alarm_service_.hour(), alarm_service_.minute(), 0};
+  const ClockTime alarm_time = {alarm_service_.hour(active_alarm_index_), alarm_service_.minute(active_alarm_index_),
+                                0};
   ClockFormatter::formatHHMM(alarm_time, state_.alarm_text, sizeof(state_.alarm_text));
 
-  if (alarm_service_.isRinging()) {
+  if (alarm_service_.isRinging(active_alarm_index_)) {
     snprintf(state_.primary_button_text, sizeof(state_.primary_button_text), "Dismiss");
   } else {
     snprintf(state_.primary_button_text, sizeof(state_.primary_button_text), "Set");
   }
 
-  state_.alarm_enabled = alarm_service_.isEnabled();
+  state_.alarm_enabled = alarm_service_.isEnabled(active_alarm_index_);
 }
 
 ClockAppEffects ClockAppController::makeEditorSyncEffects() const {
   ClockAppEffects effects = makeNoEffects();
   effects.sync_editor_selection = true;
-  effects.editor_hour = alarm_service_.hour();
-  effects.editor_minute = alarm_service_.minute();
+  effects.editor_hour = alarm_service_.hour(active_alarm_index_);
+  effects.editor_minute = alarm_service_.minute(active_alarm_index_);
   return effects;
 }

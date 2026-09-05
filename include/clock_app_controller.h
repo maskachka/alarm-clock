@@ -23,27 +23,29 @@ struct ClockAppEffects {
 };
 
 class ClockAppController {
-public:
-  explicit ClockAppController(AlarmService &alarm_service);
+ public:
+  explicit ClockAppController(AlarmService& alarm_service);
 
   void initialize();
-  ClockAppEffects refresh(bool has_time, const ClockTime &now);
+  void selectAlarm(uint8_t index);
+  ClockAppEffects refresh(bool has_time, const ClockTime& now);
   ClockAppEffects onPrimaryButtonPressed();
   ClockAppEffects onToggleAlarmPressed();
   ClockAppEffects onApplyAlarmPressed(uint8_t selected_hour, uint8_t selected_minute);
   ClockAppEffects onCancelAlarmPressed();
 
-  const ClockAppState &state() const;
+  const ClockAppState& state() const;
 
-private:
+ private:
   static ClockAppEffects makeNoEffects();
 
   void setClockUnavailable();
-  void setClockText(const ClockTime &time_value);
+  void setClockText(const ClockTime& time_value);
   void updateButtonLabels();
   ClockAppEffects makeEditorSyncEffects() const;
 
-  AlarmService &alarm_service_;
+  AlarmService& alarm_service_;
   ClockAppState state_;
   bool buzzer_active_;
+  uint8_t active_alarm_index_;
 };
