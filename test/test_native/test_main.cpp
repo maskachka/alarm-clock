@@ -8,8 +8,8 @@
 
 namespace {
 
-ClockTime makeTime(uint8_t hour, uint8_t minute, uint8_t second = 0) {
-  ClockTime time_value = {hour, minute, second};
+ClockTime makeTime(uint8_t hour, uint8_t minute, uint8_t second = 0, uint8_t weekday = 0) {
+  ClockTime time_value = {hour, minute, second, weekday};
   return time_value;
 }
 
@@ -20,6 +20,7 @@ void testAlarmServiceDefaults() {
   TEST_ASSERT_FALSE(alarm_service.isRinging());
   TEST_ASSERT_EQUAL_UINT8(7, alarm_service.hour());
   TEST_ASSERT_EQUAL_UINT8(0, alarm_service.minute());
+  TEST_ASSERT_EQUAL_UINT8(AlarmService::kEveryDayMask, alarm_service.weekdayMask(0));
 }
 
 void testAlarmServiceAddsAlarmWithRequestedTime() {
@@ -88,6 +89,26 @@ void testAlarmServiceDismissSuppressesSameMinuteButAllowsLaterRetrigger() {
   TEST_ASSERT_TRUE(alarm_service.update(makeTime(6, 30)));
 }
 
+void testAlarmServiceOnlyRingsOnSelectedWeekdays() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(6, 30);
+  alarm_service.setWeekdayMask(0, static_cast<uint8_t>(1u << 1));  // Monday
+  alarm_service.setEnabled(true);
+
+  TEST_ASSERT_FALSE(alarm_service.update(makeTime(6, 30, 0, 0)));  // Sunday
+  TEST_ASSERT_FALSE(alarm_service.update(makeTime(6, 31, 0, 0)));
+  TEST_ASSERT_TRUE(alarm_service.update(makeTime(6, 30, 0, 1)));  // Monday
+}
+
+void testAlarmServiceDoesNotRingWhenNoWeekdaysAreSelected() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(6, 30);
+  alarm_service.setWeekdayMask(0, 0);
+  alarm_service.setEnabled(true);
+
+  TEST_ASSERT_FALSE(alarm_service.update(makeTime(6, 30, 0, 1)));
+}
+
 void testClockFormatterFormatsTimeValues() {
   char hhmm[6] = {};
   char hhmmss[9] = {};
@@ -124,7 +145,7 @@ void testControllerInitializeSetsDefaultViewState() {
   TEST_ASSERT_EQUAL_STRING("07:00", controller.state().alarm_text);
   TEST_ASSERT_EQUAL_STRING("Set", controller.state().primary_button_text);
   TEST_ASSERT_FALSE(controller.state().alarm_enabled);
-  TEST_ASSERT_FALSE(controller.state().editor_visible);
+  TEST_ASSERT_FALSE(controller.state().alarm_settings_visible);
 }
 
 void testControllerRefreshUnavailableKeepsPlaceholderClock() {
@@ -215,7 +236,7 @@ void testControllerToggleDisablesAlarmAndStopsBuzzer() {
   TEST_ASSERT_FALSE(controller.state().alarm_enabled);
 }
 
-void testControllerPrimaryButtonOpensEditorWhenIdle() {
+void testControllerPrimaryButtonOpensAlarmSettingsWhenIdle() {
   AlarmService alarm_service;
   alarm_service.setAlarm(8, 45);
   ClockAppController controller(alarm_service);
@@ -223,10 +244,10 @@ void testControllerPrimaryButtonOpensEditorWhenIdle() {
 
   const ClockAppEffects effects = controller.onPrimaryButtonPressed();
 
-  TEST_ASSERT_TRUE(controller.state().editor_visible);
-  TEST_ASSERT_TRUE(effects.sync_editor_selection);
-  TEST_ASSERT_EQUAL_UINT8(8, effects.editor_hour);
-  TEST_ASSERT_EQUAL_UINT8(45, effects.editor_minute);
+  TEST_ASSERT_TRUE(controller.state().alarm_settings_visible);
+  TEST_ASSERT_TRUE(effects.sync_alarm_settings_selection);
+  TEST_ASSERT_EQUAL_UINT8(8, effects.settings_hour);
+  TEST_ASSERT_EQUAL_UINT8(45, effects.settings_minute);
 }
 
 void testControllerPrimaryButtonDismissesWhenRinging() {
@@ -241,29 +262,29 @@ void testControllerPrimaryButtonDismissesWhenRinging() {
 
   TEST_ASSERT_TRUE(effects.stop_buzzer);
   TEST_ASSERT_FALSE(alarm_service.isRinging());
-  TEST_ASSERT_FALSE(controller.state().editor_visible);
+  TEST_ASSERT_FALSE(controller.state().alarm_settings_visible);
   TEST_ASSERT_EQUAL_STRING("Set", controller.state().primary_button_text);
 }
 
-void testControllerApplyUpdatesAlarmAndHidesEditorWithoutChangingEnabledState() {
+void testControllerApplyUpdatesAlarmAndHidesSettingsWithoutChangingEnabledState() {
   AlarmService alarm_service;
   ClockAppController controller(alarm_service);
   controller.initialize();
   controller.onPrimaryButtonPressed();
 
-  const ClockAppEffects effects = controller.onApplyAlarmPressed(23, 59);
+  const ClockAppEffects effects = controller.onApplyAlarmPressed(23, 59, AlarmService::kEveryDayMask);
 
   TEST_ASSERT_FALSE(effects.start_buzzer);
   TEST_ASSERT_FALSE(alarm_service.isEnabled());
   TEST_ASSERT_EQUAL_UINT8(23, alarm_service.hour());
   TEST_ASSERT_EQUAL_UINT8(59, alarm_service.minute());
-  TEST_ASSERT_FALSE(controller.state().editor_visible);
+  TEST_ASSERT_FALSE(controller.state().alarm_settings_visible);
   TEST_ASSERT_EQUAL_STRING("23:59", controller.state().alarm_text);
   TEST_ASSERT_EQUAL_STRING("Set", controller.state().primary_button_text);
   TEST_ASSERT_FALSE(controller.state().alarm_enabled);
 }
 
-void testControllerCancelHidesEditorWithoutChangingAlarm() {
+void testControllerCancelHidesSettingsWithoutChangingAlarm() {
   AlarmService alarm_service;
   alarm_service.setAlarm(9, 10);
   ClockAppController controller(alarm_service);
@@ -272,7 +293,7 @@ void testControllerCancelHidesEditorWithoutChangingAlarm() {
 
   controller.onCancelAlarmPressed();
 
-  TEST_ASSERT_FALSE(controller.state().editor_visible);
+  TEST_ASSERT_FALSE(controller.state().alarm_settings_visible);
   TEST_ASSERT_EQUAL_UINT8(9, alarm_service.hour());
   TEST_ASSERT_EQUAL_UINT8(10, alarm_service.minute());
   TEST_ASSERT_FALSE(alarm_service.isEnabled());
@@ -296,6 +317,8 @@ int main(int argc, char** argv) {
   RUN_TEST(testAlarmServiceDoesNotRingWhenDisabled);
   RUN_TEST(testAlarmServiceTriggersOnlyOncePerMinute);
   RUN_TEST(testAlarmServiceDismissSuppressesSameMinuteButAllowsLaterRetrigger);
+  RUN_TEST(testAlarmServiceOnlyRingsOnSelectedWeekdays);
+  RUN_TEST(testAlarmServiceDoesNotRingWhenNoWeekdaysAreSelected);
   RUN_TEST(testClockFormatterFormatsTimeValues);
   RUN_TEST(testClockFormatterHandlesNullAndZeroBuffers);
   RUN_TEST(testClockFormatterTruncatesSafely);
@@ -306,9 +329,9 @@ int main(int argc, char** argv) {
   RUN_TEST(testControllerRefreshKeepsBuzzerActiveUntilDismissed);
   RUN_TEST(testControllerToggleEnablesAlarm);
   RUN_TEST(testControllerToggleDisablesAlarmAndStopsBuzzer);
-  RUN_TEST(testControllerPrimaryButtonOpensEditorWhenIdle);
+  RUN_TEST(testControllerPrimaryButtonOpensAlarmSettingsWhenIdle);
   RUN_TEST(testControllerPrimaryButtonDismissesWhenRinging);
-  RUN_TEST(testControllerApplyUpdatesAlarmAndHidesEditorWithoutChangingEnabledState);
-  RUN_TEST(testControllerCancelHidesEditorWithoutChangingAlarm);
+  RUN_TEST(testControllerApplyUpdatesAlarmAndHidesSettingsWithoutChangingEnabledState);
+  RUN_TEST(testControllerCancelHidesSettingsWithoutChangingAlarm);
   return UNITY_END();
 }

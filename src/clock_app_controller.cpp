@@ -11,7 +11,7 @@ ClockAppController::ClockAppController(AlarmService& alarm_service)
   state_.alarm_text[0] = '\0';
   state_.primary_button_text[0] = '\0';
   state_.alarm_enabled = false;
-  state_.editor_visible = false;
+  state_.alarm_settings_visible = false;
 }
 
 void ClockAppController::selectAlarm(uint8_t index) {
@@ -19,20 +19,33 @@ void ClockAppController::selectAlarm(uint8_t index) {
   updateButtonLabels();
 }
 
-ClockAppEffects ClockAppController::openNewAlarmEditor() {
+ClockAppEffects ClockAppController::openNewAlarmSettings() {
   ClockAppEffects effects = makeNoEffects();
-  state_.editor_visible = true;
-  effects.sync_editor_selection = true;
-  effects.editor_hour = 7;
-  effects.editor_minute = 0;
+  state_.alarm_settings_visible = true;
+  effects.sync_alarm_settings_selection = true;
+  effects.settings_hour = 7;
+  effects.settings_minute = 0;
+  effects.settings_weekday_mask = AlarmService::kEveryDayMask;
   return effects;
 }
-ClockAppEffects ClockAppController::openAlarmEditor(uint8_t index) { selectAlarm(index); state_.editor_visible = true; return makeEditorSyncEffects(); }
-ClockAppEffects ClockAppController::dismissAllRinging() { ClockAppEffects effects=makeNoEffects(); if(alarm_service_.dismissAllRinging()>0 && buzzer_active_){effects.stop_buzzer=true;buzzer_active_=false;} updateButtonLabels(); return effects; }
+ClockAppEffects ClockAppController::openAlarmSettings(uint8_t index) {
+  selectAlarm(index);
+  state_.alarm_settings_visible = true;
+  return makeAlarmSettingsSyncEffects();
+}
+ClockAppEffects ClockAppController::dismissAllRinging() {
+  ClockAppEffects effects = makeNoEffects();
+  if (alarm_service_.dismissAllRinging() > 0 && buzzer_active_) {
+    effects.stop_buzzer = true;
+    buzzer_active_ = false;
+  }
+  updateButtonLabels();
+  return effects;
+}
 
 void ClockAppController::initialize() {
   setClockUnavailable();
-  state_.editor_visible = false;
+  state_.alarm_settings_visible = false;
   buzzer_active_ = false;
   updateButtonLabels();
 }
@@ -72,13 +85,16 @@ ClockAppEffects ClockAppController::onPrimaryButtonPressed() {
 
   if (alarm_service_.hasRingingAlarm()) {
     alarm_service_.dismissAllRinging();
-    if (buzzer_active_) { effects.stop_buzzer = true; buzzer_active_ = false; }
+    if (buzzer_active_) {
+      effects.stop_buzzer = true;
+      buzzer_active_ = false;
+    }
     updateButtonLabels();
     return effects;
   }
 
-  state_.editor_visible = true;
-  return makeEditorSyncEffects();
+  state_.alarm_settings_visible = true;
+  return makeAlarmSettingsSyncEffects();
 }
 
 ClockAppEffects ClockAppController::onToggleAlarmPressed() {
@@ -98,15 +114,17 @@ ClockAppEffects ClockAppController::onToggleAlarmPressed() {
   return effects;
 }
 
-ClockAppEffects ClockAppController::onApplyAlarmPressed(uint8_t selected_hour, uint8_t selected_minute) {
+ClockAppEffects ClockAppController::onApplyAlarmPressed(uint8_t selected_hour, uint8_t selected_minute,
+                                                        uint8_t weekday_mask) {
   alarm_service_.setAlarm(active_alarm_index_, selected_hour, selected_minute);
-  state_.editor_visible = false;
+  alarm_service_.setWeekdayMask(active_alarm_index_, weekday_mask);
+  state_.alarm_settings_visible = false;
   updateButtonLabels();
   return makeNoEffects();
 }
 
 ClockAppEffects ClockAppController::onCancelAlarmPressed() {
-  state_.editor_visible = false;
+  state_.alarm_settings_visible = false;
   return makeNoEffects();
 }
 
@@ -117,9 +135,10 @@ ClockAppEffects ClockAppController::makeNoEffects() {
   effects.start_buzzer = false;
   effects.stop_buzzer = false;
   effects.update_buzzer = false;
-  effects.sync_editor_selection = false;
-  effects.editor_hour = 0;
-  effects.editor_minute = 0;
+  effects.sync_alarm_settings_selection = false;
+  effects.settings_hour = 0;
+  effects.settings_minute = 0;
+  effects.settings_weekday_mask = AlarmService::kEveryDayMask;
   return effects;
 }
 
@@ -146,10 +165,11 @@ void ClockAppController::updateButtonLabels() {
   state_.alarm_enabled = alarm_service_.isEnabled(active_alarm_index_);
 }
 
-ClockAppEffects ClockAppController::makeEditorSyncEffects() const {
+ClockAppEffects ClockAppController::makeAlarmSettingsSyncEffects() const {
   ClockAppEffects effects = makeNoEffects();
-  effects.sync_editor_selection = true;
-  effects.editor_hour = alarm_service_.hour(active_alarm_index_);
-  effects.editor_minute = alarm_service_.minute(active_alarm_index_);
+  effects.sync_alarm_settings_selection = true;
+  effects.settings_hour = alarm_service_.hour(active_alarm_index_);
+  effects.settings_minute = alarm_service_.minute(active_alarm_index_);
+  effects.settings_weekday_mask = alarm_service_.weekdayMask(active_alarm_index_);
   return effects;
 }

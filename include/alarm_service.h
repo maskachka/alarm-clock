@@ -7,6 +7,7 @@
 class AlarmService {
  public:
   static constexpr uint8_t kMaxAlarms = 4;
+  static constexpr uint8_t kEveryDayMask = 0x7f;
 
   AlarmService();
 
@@ -16,6 +17,7 @@ class AlarmService {
   bool addAlarm(uint8_t hour, uint8_t minute);
   bool removeAlarm(uint8_t index);
   void setAlarm(uint8_t index, uint8_t hour, uint8_t minute);
+  void setWeekdayMask(uint8_t index, uint8_t weekday_mask);
   void setEnabled(uint8_t index, bool enabled);
   void dismiss(uint8_t index);
   bool isEnabled(uint8_t index) const;
@@ -24,6 +26,7 @@ class AlarmService {
   uint8_t dismissAllRinging();
   uint8_t hour(uint8_t index) const;
   uint8_t minute(uint8_t index) const;
+  uint8_t weekdayMask(uint8_t index) const;
 
   void setAlarm(uint8_t hour, uint8_t minute);
   void setEnabled(bool enabled);
@@ -40,6 +43,7 @@ class AlarmService {
   struct Alarm {
     uint8_t hour;
     uint8_t minute;
+    uint8_t weekday_mask;
     bool enabled;
     bool ringing;
     bool triggered_for_current_minute;
