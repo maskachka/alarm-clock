@@ -1,4 +1,6 @@
 #include "screens/clock_screen.h"
+
+#include "ui/icons.h"
 #include "ui/theme.h"
 namespace {
 constexpr int32_t kDigitWidth = 32, kSeparatorWidth = 16;
@@ -24,15 +26,34 @@ void ClockScreen::build(lv_obj_t* parent) {
     lv_obj_set_style_text_color(digits_[i], lv_color_hex(UiTheme::kTextPrimary), 0);
     lv_obj_set_style_text_align(digits_[i], LV_TEXT_ALIGN_CENTER, 0);
   }
-  lv_obj_t* settings = lv_label_create(root_);
-  lv_label_set_text(settings, "Settings");
-  lv_obj_set_style_text_font(settings, &lv_font_montserrat_20, 0);
-  lv_obj_set_style_text_color(settings, lv_color_hex(UiTheme::kAccent), 0);
+  lv_obj_t* settings = lv_obj_create(root_);
+  lv_obj_remove_style_all(settings);
+  lv_obj_set_size(settings, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_column(settings, 6, 0);
+  lv_obj_set_flex_flow(settings, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(settings, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_add_flag(settings, LV_OBJ_FLAG_FLOATING);
+  lv_obj_align(settings, LV_ALIGN_BOTTOM_LEFT, 14, -14);
   lv_obj_add_flag(settings, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(settings, onSettingsPressed, LV_EVENT_CLICKED, this);
+
+  lv_obj_t* settings_icon = lv_label_create(settings);
+  lv_label_set_text(settings_icon, UiIcon::kSettings);
+  lv_obj_set_style_text_font(settings_icon, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(settings_icon, lv_color_hex(UiTheme::kAccent), 0);
+
+  lv_obj_t* settings_label = lv_label_create(settings);
+  lv_label_set_text(settings_label, "Settings");
+  lv_obj_set_style_text_font(settings_label, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(settings_label, lv_color_hex(UiTheme::kAccent), 0);
 }
 void ClockScreen::render(const ClockAppState& s) { setClockText(s.clock_text); }
-void ClockScreen::show() { lv_obj_clear_flag(root_, LV_OBJ_FLAG_HIDDEN); }
+void ClockScreen::show() {
+  if (lv_obj_has_flag(root_, LV_OBJ_FLAG_HIDDEN)) {
+    lv_obj_scroll_to_y(root_, 0, LV_ANIM_OFF);
+    lv_obj_clear_flag(root_, LV_OBJ_FLAG_HIDDEN);
+  }
+}
 void ClockScreen::hide() { lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN); }
 void ClockScreen::onSettingsPressed(lv_event_t* e) {
   auto* s = static_cast<ClockScreen*>(lv_event_get_user_data(e));

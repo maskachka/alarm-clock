@@ -30,6 +30,7 @@ class ClockApp : private ClockScreenListener,
   void onConfirmationCancelled() override;
   void onAlarmSettingsApplied(uint8_t hour, uint8_t minute, uint8_t weekday_mask) override;
   void onAlarmSettingsCancelled() override;
+  void onAlarmSettingsBackRequested() override;
   void onAlarmSelected(uint8_t index) override;
   void onAlarmToggled(uint8_t index) override;
   void onAlarmListBackRequested() override;

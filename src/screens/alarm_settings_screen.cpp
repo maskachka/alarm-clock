@@ -2,13 +2,15 @@
 
 #include "alarm_service.h"
 #include "ui/button.h"
+#include "ui/icons.h"
+#include "ui/page_header.h"
 #include "ui/theme.h"
 
 namespace {
 constexpr int32_t kPagePadding = 14;
 constexpr int32_t kRollerWidth = 104;
 constexpr int32_t kRollerHeight = 82;
-constexpr Ui::ButtonSize kActionButtonSize{96, 42};
+constexpr Ui::ButtonSize kHeaderSaveButtonSize{60, 32};
 constexpr Ui::ButtonSize kDayButtonSize{34, 30};
 constexpr char kHourOptions[] =
     "00\n01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23";
@@ -22,6 +24,7 @@ constexpr const char* kWeekdayLabels[] = {"S", "M", "T", "W", "T", "F", "S"};
 AlarmSettingsScreen::AlarmSettingsScreen(AlarmSettingsScreenListener& listener)
     : listener_(listener),
       root_(nullptr),
+      title_(nullptr),
       hour_roller_(nullptr),
       minute_roller_(nullptr),
       every_day_switch_(nullptr),
@@ -40,10 +43,10 @@ void AlarmSettingsScreen::build(lv_obj_t* parent) {
   lv_obj_set_scroll_dir(root_, LV_DIR_VER);
   lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN);
 
-  lv_obj_t* title = lv_label_create(root_);
-  lv_label_set_text(title, "Alarm settings");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
-  lv_obj_set_style_text_color(title, lv_color_hex(UiTheme::kTextPrimary), 0);
+  const Ui::PageHeaderElements header =
+      Ui::createPageHeader(root_, {"Alarm settings", UiIcon::kBackLabel, onBackPressed, this, "Save",
+                                   &UiTheme::kPrimaryButtonStyle, kHeaderSaveButtonSize, onApplyButtonPressed, this});
+  title_ = header.title;
 
   lv_obj_t* rollers_row = lv_obj_create(root_);
   lv_obj_remove_style_all(rollers_row);
@@ -73,20 +76,19 @@ void AlarmSettingsScreen::build(lv_obj_t* parent) {
 
   lv_obj_t* repeat_header = lv_obj_create(root_);
   lv_obj_remove_style_all(repeat_header);
-  lv_obj_set_width(repeat_header, LV_PCT(100));
+  lv_obj_set_size(repeat_header, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_bottom(repeat_header, 4, 0);
   lv_obj_set_flex_flow(repeat_header, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(repeat_header, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_t* repeat_label = lv_label_create(repeat_header);
-  lv_label_set_text(repeat_label, "Repeat");
+  lv_label_set_text(repeat_label, "Repeat every day");
   lv_obj_set_style_text_font(repeat_label, &lv_font_montserrat_16, 0);
-  lv_obj_t* every_day_label = lv_label_create(repeat_header);
-  lv_label_set_text(every_day_label, "Every day");
   every_day_switch_ = lv_switch_create(repeat_header);
   lv_obj_add_event_cb(every_day_switch_, onEveryDayChanged, LV_EVENT_VALUE_CHANGED, this);
 
   lv_obj_t* weekdays_row = lv_obj_create(root_);
   lv_obj_remove_style_all(weekdays_row);
-  lv_obj_set_width(weekdays_row, LV_PCT(100));
+  lv_obj_set_size(weekdays_row, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_style_pad_column(weekdays_row, 5, 0);
   lv_obj_set_flex_flow(weekdays_row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(weekdays_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -98,19 +100,17 @@ void AlarmSettingsScreen::build(lv_obj_t* parent) {
     lv_obj_set_style_bg_color(day.button, lv_color_hex(UiTheme::kAccent), LV_STATE_CHECKED);
     lv_obj_set_style_text_color(day.button, lv_color_hex(UiTheme::kTextOnAccent), LV_STATE_CHECKED);
   }
-
-  lv_obj_t* actions_row = lv_obj_create(root_);
-  lv_obj_remove_style_all(actions_row);
-  lv_obj_set_size(actions_row, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_flex_flow(actions_row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(actions_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  Ui::createButton(actions_row, "Set", UiTheme::kPrimaryButtonStyle, kActionButtonSize, onApplyButtonPressed, this);
-  Ui::createButton(actions_row, "Cancel", UiTheme::kSecondaryButtonStyle, kActionButtonSize, onCancelButtonPressed,
-                   this);
 }
 
-void AlarmSettingsScreen::show() { lv_obj_clear_flag(root_, LV_OBJ_FLAG_HIDDEN); }
+void AlarmSettingsScreen::show() {
+  if (lv_obj_has_flag(root_, LV_OBJ_FLAG_HIDDEN)) {
+    lv_obj_scroll_to_y(root_, 0, LV_ANIM_OFF);
+    lv_obj_clear_flag(root_, LV_OBJ_FLAG_HIDDEN);
+  }
+}
 void AlarmSettingsScreen::hide() { lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN); }
+
+void AlarmSettingsScreen::setTitle(const char* title) { lv_label_set_text(title_, title); }
 
 void AlarmSettingsScreen::setSelection(uint8_t hour, uint8_t minute, uint8_t weekday_mask) {
   lv_roller_set_selected(hour_roller_, hour, LV_ANIM_OFF);
@@ -129,14 +129,18 @@ void AlarmSettingsScreen::onApplyButtonPressed(lv_event_t* event) {
                                            static_cast<uint8_t>(lv_roller_get_selected(view->minute_roller_)),
                                            view->selectedWeekdayMask());
 }
-void AlarmSettingsScreen::onCancelButtonPressed(lv_event_t* event) {
+void AlarmSettingsScreen::onBackPressed(lv_event_t* event) {
   auto* view = static_cast<AlarmSettingsScreen*>(lv_event_get_user_data(event));
-  if (view != nullptr) view->listener_.onAlarmSettingsCancelled();
+  if (view != nullptr) view->listener_.onAlarmSettingsBackRequested();
 }
 void AlarmSettingsScreen::onEveryDayChanged(lv_event_t* event) {
   auto* view = static_cast<AlarmSettingsScreen*>(lv_event_get_user_data(event));
-  if (view == nullptr || !lv_obj_has_state(view->every_day_switch_, LV_STATE_CHECKED)) return;
-  for (uint8_t weekday = 0; weekday < 7; ++weekday) view->setWeekdaySelected(weekday, true);
+  if (view == nullptr) return;
+
+  const bool every_day_selected = lv_obj_has_state(view->every_day_switch_, LV_STATE_CHECKED);
+  for (uint8_t weekday = 0; weekday < 7; ++weekday) {
+    view->setWeekdaySelected(weekday, every_day_selected);
+  }
 }
 void AlarmSettingsScreen::onWeekdayPressed(lv_event_t* event) {
   auto* view = static_cast<AlarmSettingsScreen*>(lv_event_get_user_data(event));

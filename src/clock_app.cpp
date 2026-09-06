@@ -54,6 +54,7 @@ void ClockApp::onSettingsRequested() {
 void ClockApp::onAlarmAddRequested() {
   if (alarm_service_.count() == AlarmService::kMaxAlarms) return;
   creating_alarm_ = true;
+  alarm_settings_screen_.setTitle("Add new alarm");
   applyControllerEffects(controller_.openNewAlarmSettings());
   applyControllerState();
 }
@@ -81,6 +82,9 @@ void ClockApp::onConfirmationConfirmed(ConfirmationAction action, uint8_t index)
 void ClockApp::onConfirmationCancelled() { confirmation_dialog_view_.hide(); }
 
 void ClockApp::onAlarmSelected(uint8_t index) {
+  char title[32];
+  snprintf(title, sizeof(title), "Edit alarm %u", static_cast<unsigned>(index + 1));
+  alarm_settings_screen_.setTitle(title);
   applyControllerEffects(controller_.openAlarmSettings(index));
   applyControllerState();
 }
@@ -113,6 +117,8 @@ void ClockApp::onAlarmSettingsCancelled() {
   applyControllerEffects(controller_.onCancelAlarmPressed());
   applyControllerState();
 }
+
+void ClockApp::onAlarmSettingsBackRequested() { onAlarmSettingsCancelled(); }
 
 void ClockApp::refresh() {
   ClockTime now;
