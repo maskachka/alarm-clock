@@ -1,5 +1,7 @@
 #include "clock_app.h"
 
+#include <cstdio>
+
 #include "ui/theme.h"
 
 namespace {
@@ -13,11 +15,14 @@ ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, Ala
       controller_(alarm_service),
       clock_screen_(*this),
       alarm_editor_view_(*this),
+      confirmation_dialog_view_(*this),
       alarm_list_screen_(*this),
       refresh_timer_(nullptr),
-      buzzer_active_(false) {}
+      buzzer_active_(false),
+      creating_alarm_(false) {}
 
 void ClockApp::build() {
+  alarm_service_.load();
   alarm_buzzer_.begin();
 
   lv_obj_t* screen = lv_screen_active();
@@ -25,6 +30,7 @@ void ClockApp::build() {
   clock_screen_.build(screen);
   alarm_list_screen_.build(screen);
   alarm_editor_view_.build(screen);
+  confirmation_dialog_view_.build(screen);
 
   refresh_timer_ = lv_timer_create(onRefreshTimer, kRefreshPeriodMs, this);
   controller_.initialize();
@@ -45,9 +51,25 @@ void ClockApp::onSettingsRequested() {
   alarm_list_screen_.show();
 }
 
+void ClockApp::onAlarmAddRequested() {
+  if (alarm_service_.count() == AlarmService::kMaxAlarms) return;
+  creating_alarm_ = true;
+  applyControllerEffects(controller_.openNewAlarmEditor());
+  applyControllerState();
+}
+
+void ClockApp::onAlarmDeleteRequested(uint8_t index) {
+  if (index >= alarm_service_.count()) return;
+  char message[96];
+  snprintf(message,sizeof(message),"Are you sure you want to delete\nalarm %u at %02u:%02u?",static_cast<unsigned>(index+1),static_cast<unsigned>(alarm_service_.hour(index)),static_cast<unsigned>(alarm_service_.minute(index)));
+  confirmation_dialog_view_.show({ConfirmationAction::DeleteAlarm,index,message,"Delete",true});
+}
+void ClockApp::onDismissRequested() { confirmation_dialog_view_.show({ConfirmationAction::DismissRingingAlarms,0,"Dismiss all currently\nringing alarms?","Dismiss",false}); }
+void ClockApp::onConfirmationConfirmed(ConfirmationAction action,uint8_t index) { if(action==ConfirmationAction::DeleteAlarm) alarm_service_.removeAlarm(index); else applyControllerEffects(controller_.dismissAllRinging()); confirmation_dialog_view_.hide(); applyControllerState(); }
+void ClockApp::onConfirmationCancelled() { confirmation_dialog_view_.hide(); }
+
 void ClockApp::onAlarmSelected(uint8_t index) {
-  controller_.selectAlarm(index);
-  applyControllerEffects(controller_.onPrimaryButtonPressed());
+  applyControllerEffects(controller_.openAlarmEditor(index));
   applyControllerState();
 }
 
@@ -63,11 +85,18 @@ void ClockApp::onAlarmListBackRequested() {
 }
 
 void ClockApp::onAlarmEditorApplied(uint8_t hour, uint8_t minute) {
-  applyControllerEffects(controller_.onApplyAlarmPressed(hour, minute));
+  if (creating_alarm_) {
+    alarm_service_.addAlarm(hour, minute);
+    creating_alarm_ = false;
+    applyControllerEffects(controller_.onCancelAlarmPressed());
+  } else {
+    applyControllerEffects(controller_.onApplyAlarmPressed(hour, minute));
+  }
   applyControllerState();
 }
 
 void ClockApp::onAlarmEditorCancelled() {
+  creating_alarm_ = false;
   applyControllerEffects(controller_.onCancelAlarmPressed());
   applyControllerState();
 }

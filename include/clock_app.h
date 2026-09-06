@@ -6,10 +6,11 @@
 #include "clock_app_controller.h"
 #include "clock_service.h"
 #include "screens/alarm_editor_view.h"
+#include "screens/alarm_delete_confirmation_view.h"
 #include "screens/alarm_list_screen.h"
 #include "screens/clock_screen.h"
 
-class ClockApp : private ClockScreenListener, private AlarmEditorViewListener, private AlarmListScreenListener {
+class ClockApp : private ClockScreenListener, private AlarmEditorViewListener, private AlarmListScreenListener, private ConfirmationDialogListener {
  public:
   ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer);
 
@@ -19,6 +20,11 @@ class ClockApp : private ClockScreenListener, private AlarmEditorViewListener, p
   static void onRefreshTimer(lv_timer_t* timer);
 
   void onSettingsRequested() override;
+  void onAlarmAddRequested() override;
+  void onDismissRequested() override;
+  void onAlarmDeleteRequested(uint8_t index) override;
+  void onConfirmationConfirmed(ConfirmationAction action, uint8_t index) override;
+  void onConfirmationCancelled() override;
   void onAlarmEditorApplied(uint8_t hour, uint8_t minute) override;
   void onAlarmEditorCancelled() override;
   void onAlarmSelected(uint8_t index) override;
@@ -35,7 +41,9 @@ class ClockApp : private ClockScreenListener, private AlarmEditorViewListener, p
   ClockAppController controller_;
   ClockScreen clock_screen_;
   AlarmEditorView alarm_editor_view_;
+  ConfirmationDialogView confirmation_dialog_view_;
   AlarmListScreen alarm_list_screen_;
   lv_timer_t* refresh_timer_;
   bool buzzer_active_;
+  bool creating_alarm_;
 };

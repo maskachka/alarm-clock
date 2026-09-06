@@ -1,7 +1,8 @@
 #include "screens/alarm_list_screen.h"
 #include <stdio.h>
 #include "ui/theme.h"
-AlarmListScreen::AlarmListScreen(AlarmListScreenListener& l) : listener_(l), root_(nullptr), rows_{} {}
+#include "ui/button.h"
+AlarmListScreen::AlarmListScreen(AlarmListScreenListener& l) : listener_(l), root_(nullptr), dismiss_button_(nullptr), rows_{} {}
 void AlarmListScreen::build(lv_obj_t* parent) {
   root_ = lv_obj_create(parent);
   lv_obj_remove_style_all(root_);
@@ -16,9 +17,19 @@ void AlarmListScreen::build(lv_obj_t* parent) {
   lv_obj_set_style_text_color(back, lv_color_hex(UiTheme::kAccent), 0);
   lv_obj_add_flag(back, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(back, onBack, LV_EVENT_CLICKED, this);
-  lv_obj_t* title = lv_label_create(root_);
+  lv_obj_t* title_row = lv_obj_create(root_);
+  lv_obj_remove_style_all(title_row);
+  lv_obj_set_size(title_row, LV_PCT(100), 38);
+  lv_obj_set_flex_flow(title_row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(title_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_t* title = lv_label_create(title_row);
   lv_label_set_text(title, "Alarms");
   lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+  constexpr Ui::ButtonSize kAddButtonSize{60, 32};
+  Ui::ButtonElements dismiss=Ui::createButton(title_row,"Dismiss",UiTheme::kSecondaryButtonStyle,kAddButtonSize,onDismiss,this);
+  dismiss_button_=dismiss.button;
+  lv_obj_add_flag(dismiss_button_,LV_OBJ_FLAG_HIDDEN);
+  Ui::createButton(title_row, "Add", UiTheme::kPrimaryButtonStyle, kAddButtonSize, onAdd, this);
   for (uint8_t i = 0; i < AlarmService::kMaxAlarms; ++i) {
     Row& r = rows_[i];
     r.screen = this;
@@ -47,11 +58,18 @@ void AlarmListScreen::build(lv_obj_t* parent) {
     lv_obj_set_style_text_color(edit, lv_color_hex(UiTheme::kAccent), 0);
     lv_obj_add_flag(edit, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(edit, onSet, LV_EVENT_CLICKED, &r);
+    lv_obj_t* remove = lv_label_create(group);
+    lv_label_set_text(remove, "Delete");
+    lv_obj_set_style_text_font(remove, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(remove, lv_color_hex(UiTheme::kAccent), 0);
+    lv_obj_add_flag(remove, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(remove, onDelete, LV_EVENT_CLICKED, &r);
     r.enabled_switch = lv_switch_create(r.root);
     lv_obj_add_event_cb(r.enabled_switch, onToggle, LV_EVENT_VALUE_CHANGED, &r);
   }
 }
 void AlarmListScreen::render(const AlarmService& a) {
+  if(a.hasRingingAlarm()) lv_obj_clear_flag(dismiss_button_,LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(dismiss_button_,LV_OBJ_FLAG_HIDDEN);
   for (uint8_t i = 0; i < AlarmService::kMaxAlarms; ++i) {
     Row& r = rows_[i];
     if (i >= a.count()) {
@@ -73,6 +91,15 @@ void AlarmListScreen::hide() { lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN); }
 void AlarmListScreen::onSet(lv_event_t* e) {
   auto* r = static_cast<Row*>(lv_event_get_user_data(e));
   if (r) r->screen->listener_.onAlarmSelected(r->index);
+}
+void AlarmListScreen::onAdd(lv_event_t* e) {
+  auto* s = static_cast<AlarmListScreen*>(lv_event_get_user_data(e));
+  if (s) s->listener_.onAlarmAddRequested();
+}
+void AlarmListScreen::onDismiss(lv_event_t* e) { auto* s=static_cast<AlarmListScreen*>(lv_event_get_user_data(e)); if(s)s->listener_.onDismissRequested(); }
+void AlarmListScreen::onDelete(lv_event_t* e) {
+  auto* r = static_cast<Row*>(lv_event_get_user_data(e));
+  if (r) r->screen->listener_.onAlarmDeleteRequested(r->index);
 }
 void AlarmListScreen::onToggle(lv_event_t* e) {
   auto* r = static_cast<Row*>(lv_event_get_user_data(e));

@@ -28,6 +28,9 @@ class ClockAppController {
 
   void initialize();
   void selectAlarm(uint8_t index);
+  ClockAppEffects openNewAlarmEditor();
+  ClockAppEffects openAlarmEditor(uint8_t index);
+  ClockAppEffects dismissAllRinging();
   ClockAppEffects refresh(bool has_time, const ClockTime& now);
   ClockAppEffects onPrimaryButtonPressed();
   ClockAppEffects onToggleAlarmPressed();

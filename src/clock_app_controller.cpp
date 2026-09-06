@@ -19,6 +19,17 @@ void ClockAppController::selectAlarm(uint8_t index) {
   updateButtonLabels();
 }
 
+ClockAppEffects ClockAppController::openNewAlarmEditor() {
+  ClockAppEffects effects = makeNoEffects();
+  state_.editor_visible = true;
+  effects.sync_editor_selection = true;
+  effects.editor_hour = 7;
+  effects.editor_minute = 0;
+  return effects;
+}
+ClockAppEffects ClockAppController::openAlarmEditor(uint8_t index) { selectAlarm(index); state_.editor_visible = true; return makeEditorSyncEffects(); }
+ClockAppEffects ClockAppController::dismissAllRinging() { ClockAppEffects effects=makeNoEffects(); if(alarm_service_.dismissAllRinging()>0 && buzzer_active_){effects.stop_buzzer=true;buzzer_active_=false;} updateButtonLabels(); return effects; }
+
 void ClockAppController::initialize() {
   setClockUnavailable();
   state_.editor_visible = false;
@@ -41,7 +52,7 @@ ClockAppEffects ClockAppController::refresh(bool has_time, const ClockTime& now)
     buzzer_active_ = true;
   }
 
-  if (alarm_service_.isRinging(active_alarm_index_)) {
+  if (alarm_service_.hasRingingAlarm()) {
     if (!buzzer_active_) {
       effects.start_buzzer = true;
       buzzer_active_ = true;
@@ -60,11 +71,8 @@ ClockAppEffects ClockAppController::onPrimaryButtonPressed() {
   ClockAppEffects effects = makeNoEffects();
 
   if (alarm_service_.hasRingingAlarm()) {
-    if (buzzer_active_) {
-      effects.stop_buzzer = true;
-      buzzer_active_ = false;
-    }
-    alarm_service_.dismiss(active_alarm_index_);
+    alarm_service_.dismissAllRinging();
+    if (buzzer_active_) { effects.stop_buzzer = true; buzzer_active_ = false; }
     updateButtonLabels();
     return effects;
   }
@@ -78,7 +86,7 @@ ClockAppEffects ClockAppController::onToggleAlarmPressed() {
 
   if (alarm_service_.isEnabled(active_alarm_index_)) {
     alarm_service_.setEnabled(active_alarm_index_, false);
-    if (buzzer_active_) {
+    if (buzzer_active_ && !alarm_service_.hasRingingAlarm()) {
       effects.stop_buzzer = true;
       buzzer_active_ = false;
     }

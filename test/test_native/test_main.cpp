@@ -22,6 +22,30 @@ void testAlarmServiceDefaults() {
   TEST_ASSERT_EQUAL_UINT8(0, alarm_service.minute());
 }
 
+void testAlarmServiceAddsAlarmWithRequestedTime() {
+  AlarmService alarm_service;
+
+  TEST_ASSERT_TRUE(alarm_service.addAlarm(23, 59));
+  TEST_ASSERT_EQUAL_UINT8(2, alarm_service.count());
+  TEST_ASSERT_EQUAL_UINT8(23, alarm_service.hour(1));
+  TEST_ASSERT_EQUAL_UINT8(59, alarm_service.minute(1));
+  TEST_ASSERT_FALSE(alarm_service.isEnabled(1));
+}
+
+void testAlarmServiceDismissesAllSimultaneouslyRingingAlarms() {
+  AlarmService alarm_service;
+  TEST_ASSERT_TRUE(alarm_service.addAlarm(7, 0));
+  alarm_service.setEnabled(0, true);
+  alarm_service.setEnabled(1, true);
+  TEST_ASSERT_TRUE(alarm_service.update(makeTime(7, 0)));
+  TEST_ASSERT_TRUE(alarm_service.isRinging(0));
+  TEST_ASSERT_TRUE(alarm_service.isRinging(1));
+  TEST_ASSERT_EQUAL_UINT8(2, alarm_service.dismissAllRinging());
+  TEST_ASSERT_FALSE(alarm_service.hasRingingAlarm());
+  TEST_ASSERT_FALSE(alarm_service.isEnabled(0));
+  TEST_ASSERT_FALSE(alarm_service.isEnabled(1));
+}
+
 void testAlarmServiceWrapsHourAndMinute() {
   AlarmService alarm_service;
 
@@ -266,6 +290,8 @@ int main(int argc, char** argv) {
 
   UNITY_BEGIN();
   RUN_TEST(testAlarmServiceDefaults);
+  RUN_TEST(testAlarmServiceAddsAlarmWithRequestedTime);
+  RUN_TEST(testAlarmServiceDismissesAllSimultaneouslyRingingAlarms);
   RUN_TEST(testAlarmServiceWrapsHourAndMinute);
   RUN_TEST(testAlarmServiceDoesNotRingWhenDisabled);
   RUN_TEST(testAlarmServiceTriggersOnlyOncePerMinute);
