@@ -16,9 +16,12 @@ ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, Ala
       clock_screen_(*this),
       alarm_settings_screen_(*this),
       confirmation_dialog_view_(*this),
+      alarm_ringing_overlay_(*this),
+      alarm_ringtone_settings_screen_(*this),
       alarm_list_screen_(*this),
       refresh_timer_(nullptr),
       buzzer_active_(false),
+      ringtone_preview_active_(false),
       creating_alarm_(false) {}
 
 void ClockApp::build() {
@@ -31,6 +34,8 @@ void ClockApp::build() {
   alarm_list_screen_.build(screen);
   alarm_settings_screen_.build(screen);
   confirmation_dialog_view_.build(screen);
+  alarm_ringtone_settings_screen_.build(screen);
+  alarm_ringing_overlay_.build(screen);
 
   refresh_timer_ = lv_timer_create(onRefreshTimer, kRefreshPeriodMs, this);
   controller_.initialize();
@@ -67,15 +72,8 @@ void ClockApp::onAlarmDeleteRequested(uint8_t index) {
            static_cast<unsigned>(alarm_service_.minute(index)));
   confirmation_dialog_view_.show({ConfirmationAction::DeleteAlarm, index, message, "Delete", true});
 }
-void ClockApp::onDismissRequested() {
-  confirmation_dialog_view_.show(
-      {ConfirmationAction::DismissRingingAlarms, 0, "Dismiss all currently\nringing alarms?", "Dismiss", false});
-}
 void ClockApp::onConfirmationConfirmed(ConfirmationAction action, uint8_t index) {
-  if (action == ConfirmationAction::DeleteAlarm)
-    alarm_service_.removeAlarm(index);
-  else
-    applyControllerEffects(controller_.dismissAllRinging());
+  if (action == ConfirmationAction::DeleteAlarm) alarm_service_.removeAlarm(index);
   confirmation_dialog_view_.hide();
   applyControllerState();
 }
@@ -86,6 +84,12 @@ void ClockApp::onAlarmSelected(uint8_t index) {
   snprintf(title, sizeof(title), "Edit alarm %u", static_cast<unsigned>(index + 1));
   alarm_settings_screen_.setTitle(title);
   applyControllerEffects(controller_.openAlarmSettings(index));
+  applyControllerState();
+}
+
+void ClockApp::onAlarmRingtoneSettingsRequested(uint8_t index) {
+  applyControllerEffects(controller_.openAlarmRingtoneSettings(index));
+  alarm_ringtone_settings_screen_.setSelection(alarm_service_.ringtone(index));
   applyControllerState();
 }
 
@@ -120,6 +124,40 @@ void ClockApp::onAlarmSettingsCancelled() {
 
 void ClockApp::onAlarmSettingsBackRequested() { onAlarmSettingsCancelled(); }
 
+void ClockApp::onAlarmDismissRequested() {
+  applyControllerEffects(controller_.dismissAllRinging());
+  alarm_ringing_overlay_.hide();
+  applyControllerState();
+}
+
+void ClockApp::onAlarmSnoozeRequested() {
+  applyControllerEffects(controller_.snoozeAllRinging());
+  alarm_ringing_overlay_.hide();
+  applyControllerState();
+}
+
+void ClockApp::onAlarmRingtoneSaved(AlarmRingtone ringtone) {
+  stopRingtonePreview();
+  applyControllerEffects(controller_.onSaveAlarmRingtone(ringtone));
+  applyControllerState();
+}
+
+void ClockApp::onAlarmRingtoneSettingsBackRequested() {
+  stopRingtonePreview();
+  applyControllerEffects(controller_.onCancelAlarmRingtoneSettings());
+  applyControllerState();
+}
+
+void ClockApp::onAlarmRingtonePreviewStarted(AlarmRingtone ringtone) {
+  if (alarm_service_.hasRingingAlarm()) return;
+  if (ringtone_preview_active_) alarm_buzzer_.stop();
+  alarm_buzzer_.start(ringtone);
+  ringtone_preview_active_ = true;
+  alarm_ringtone_settings_screen_.setPreviewing(ringtone);
+}
+
+void ClockApp::onAlarmRingtonePreviewStopped() { stopRingtonePreview(); }
+
 void ClockApp::refresh() {
   ClockTime now;
   if (!clock_service_.getCurrentTime(now)) {
@@ -129,6 +167,7 @@ void ClockApp::refresh() {
   }
 
   applyControllerEffects(controller_.refresh(true, now));
+  if (ringtone_preview_active_ && !alarm_service_.hasRingingAlarm()) alarm_buzzer_.update();
   applyControllerState();
 }
 
@@ -142,6 +181,17 @@ void ClockApp::applyControllerState() {
   } else {
     alarm_settings_screen_.hide();
   }
+
+  if (state.ringtone_settings_visible) {
+    alarm_ringtone_settings_screen_.show();
+  } else {
+    alarm_ringtone_settings_screen_.hide();
+  }
+
+  if (alarm_service_.hasRingingAlarm())
+    alarm_ringing_overlay_.show();
+  else
+    alarm_ringing_overlay_.hide();
 }
 
 void ClockApp::applyControllerEffects(const ClockAppEffects& effects) {
@@ -150,7 +200,9 @@ void ClockApp::applyControllerEffects(const ClockAppEffects& effects) {
   }
 
   if (effects.start_buzzer) {
-    alarm_buzzer_.start();
+    ringtone_preview_active_ = false;
+    alarm_ringtone_settings_screen_.setPreviewing(AlarmRingtone::Count);
+    alarm_buzzer_.start(alarm_service_.ringingRingtone());
     buzzer_active_ = true;
   }
 
@@ -162,4 +214,11 @@ void ClockApp::applyControllerEffects(const ClockAppEffects& effects) {
     alarm_buzzer_.stop();
     buzzer_active_ = false;
   }
+}
+
+void ClockApp::stopRingtonePreview() {
+  if (!ringtone_preview_active_) return;
+  alarm_buzzer_.stop();
+  ringtone_preview_active_ = false;
+  alarm_ringtone_settings_screen_.setPreviewing(AlarmRingtone::Count);
 }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include "alarm_ringtone.h"
+
 class AlarmBuzzer {
  public:
   virtual ~AlarmBuzzer() = default;
 
   virtual void begin() = 0;
-  virtual void start() = 0;
+  virtual void start(AlarmRingtone ringtone) = 0;
   virtual void stop() = 0;
   virtual void update() = 0;
 };
@@ -13,7 +15,7 @@ class AlarmBuzzer {
 class SilentAlarmBuzzer : public AlarmBuzzer {
  public:
   void begin() override;
-  void start() override;
+  void start(AlarmRingtone ringtone) override;
   void stop() override;
   void update() override;
 };
@@ -24,7 +26,7 @@ class Esp32PassiveBuzzer : public AlarmBuzzer {
   explicit Esp32PassiveBuzzer(int pin, int channel = 0);
 
   void begin() override;
-  void start() override;
+  void start(AlarmRingtone ringtone) override;
   void stop() override;
   void update() override;
 
@@ -35,6 +37,7 @@ class Esp32PassiveBuzzer : public AlarmBuzzer {
   int channel_;
   unsigned long last_note_change_ms_;
   int note_index_;
+  AlarmRingtone ringtone_;
   bool active_;
   bool initialized_;
 };

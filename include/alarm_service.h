@@ -2,12 +2,22 @@
 
 #include <stdint.h>
 
+#include "alarm_ringtone.h"
 #include "clock_time.h"
 
 class AlarmService {
  public:
   static constexpr uint8_t kMaxAlarms = 4;
   static constexpr uint8_t kEveryDayMask = 0x7f;
+
+  struct NextOccurrence {
+    uint8_t alarm_index;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t weekday;
+    uint8_t days_from_now;
+    uint16_t minutes_until;
+  };
 
   AlarmService();
 
@@ -27,6 +37,12 @@ class AlarmService {
   uint8_t hour(uint8_t index) const;
   uint8_t minute(uint8_t index) const;
   uint8_t weekdayMask(uint8_t index) const;
+  AlarmRingtone ringtone(uint8_t index) const;
+  void setRingtone(uint8_t index, AlarmRingtone ringtone);
+  AlarmRingtone ringingRingtone() const;
+  bool nextOccurrence(const ClockTime& now, NextOccurrence& occurrence) const;
+  bool nextSnoozeOccurrence(const ClockTime& now, NextOccurrence& occurrence) const;
+  uint8_t snoozeAllRinging(const ClockTime& now, uint16_t duration_minutes = 10);
 
   void setAlarm(uint8_t hour, uint8_t minute);
   void setEnabled(bool enabled);
@@ -44,9 +60,13 @@ class AlarmService {
     uint8_t hour;
     uint8_t minute;
     uint8_t weekday_mask;
+    AlarmRingtone ringtone;
     bool enabled;
     bool ringing;
     bool triggered_for_current_minute;
+    bool snoozing;
+    uint8_t snooze_weekday;
+    uint16_t snooze_minute;
   };
 
   bool isValidIndex(uint8_t index) const;

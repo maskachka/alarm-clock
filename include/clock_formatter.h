@@ -12,4 +12,7 @@ size_t formatHHMM(const ClockTime& time_value, char* out_buffer, size_t buffer_s
 // Formats time as HH:MM:SS. Returns number of chars written (excluding null terminator).
 size_t formatHHMMSS(const ClockTime& time_value, char* out_buffer, size_t buffer_size);
 
+// Formats date as "Sun, Sep 6". Returns number of chars written (excluding null terminator).
+size_t formatShortDate(const ClockTime& time_value, char* out_buffer, size_t buffer_size);
+
 }  // namespace ClockFormatter

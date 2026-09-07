@@ -5,7 +5,8 @@
 namespace {
 constexpr int32_t kDigitWidth = 32, kSeparatorWidth = 16;
 }
-ClockScreen::ClockScreen(ClockScreenListener& l) : listener_(l), root_(nullptr), digits_{} {}
+ClockScreen::ClockScreen(ClockScreenListener& l)
+    : listener_(l), root_(nullptr), date_(nullptr), next_alarm_(nullptr), digits_{} {}
 void ClockScreen::build(lv_obj_t* parent) {
   root_ = lv_obj_create(parent);
   lv_obj_remove_style_all(root_);
@@ -14,7 +15,17 @@ void ClockScreen::build(lv_obj_t* parent) {
   lv_obj_set_style_pad_row(root_, 24, 0);
   lv_obj_set_flex_flow(root_, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(root_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_t* row = lv_obj_create(root_);
+  lv_obj_t* clock_line = lv_obj_create(root_);
+  lv_obj_remove_style_all(clock_line);
+  lv_obj_set_size(clock_line, LV_SIZE_CONTENT, 72);
+  lv_obj_set_style_pad_column(clock_line, 8, 0);
+  lv_obj_set_flex_flow(clock_line, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(clock_line, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  date_ = lv_label_create(clock_line);
+  lv_obj_set_style_text_font(date_, &lv_font_montserrat_16, 0);
+  lv_obj_set_style_text_color(date_, lv_color_hex(UiTheme::kTextPrimary), 0);
+  lv_obj_add_flag(date_, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_t* row = lv_obj_create(clock_line);
   lv_obj_remove_style_all(row);
   lv_obj_set_size(row, 144, 72);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
@@ -26,6 +37,12 @@ void ClockScreen::build(lv_obj_t* parent) {
     lv_obj_set_style_text_color(digits_[i], lv_color_hex(UiTheme::kTextPrimary), 0);
     lv_obj_set_style_text_align(digits_[i], LV_TEXT_ALIGN_CENTER, 0);
   }
+  next_alarm_ = lv_label_create(root_);
+  lv_obj_set_width(next_alarm_, LV_PCT(100));
+  lv_label_set_long_mode(next_alarm_, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_align(next_alarm_, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(next_alarm_, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(next_alarm_, lv_color_hex(UiTheme::kTextPrimary), 0);
   lv_obj_t* settings = lv_obj_create(root_);
   lv_obj_remove_style_all(settings);
   lv_obj_set_size(settings, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -47,7 +64,11 @@ void ClockScreen::build(lv_obj_t* parent) {
   lv_obj_set_style_text_font(settings_label, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(settings_label, lv_color_hex(UiTheme::kAccent), 0);
 }
-void ClockScreen::render(const ClockAppState& s) { setClockText(s.clock_text); }
+void ClockScreen::render(const ClockAppState& s) {
+  setDateText(s.date_text);
+  setClockText(s.clock_text);
+  setNextAlarmText(s.next_alarm_text);
+}
 void ClockScreen::show() {
   if (lv_obj_has_flag(root_, LV_OBJ_FLAG_HIDDEN)) {
     lv_obj_scroll_to_y(root_, 0, LV_ANIM_OFF);
@@ -69,3 +90,13 @@ void ClockScreen::setClockText(const char* t) {
     lv_label_set_text(digits_[i], x);
   }
 }
+
+void ClockScreen::setDateText(const char* text) {
+  lv_label_set_text(date_, text);
+  if (text != nullptr && text[0] != '\0')
+    lv_obj_clear_flag(date_, LV_OBJ_FLAG_HIDDEN);
+  else
+    lv_obj_add_flag(date_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ClockScreen::setNextAlarmText(const char* text) { lv_label_set_text(next_alarm_, text); }

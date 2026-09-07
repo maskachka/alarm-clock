@@ -4,7 +4,9 @@
 
 void SilentAlarmBuzzer::begin() {}
 
-void SilentAlarmBuzzer::start() { printf("Alarm buzzer: start\n"); }
+void SilentAlarmBuzzer::start(AlarmRingtone ringtone) {
+  printf("Alarm buzzer: start ringtone %u\n", static_cast<unsigned>(ringtone));
+}
 
 void SilentAlarmBuzzer::stop() { printf("Alarm buzzer: stop\n"); }
 
@@ -14,13 +16,36 @@ void SilentAlarmBuzzer::update() {}
 #include <Arduino.h>
 
 namespace {
-constexpr unsigned long kNoteDurationMs = 180;
-constexpr int kMelody[] = {523, 659, 784, 1047};
-constexpr size_t kMelodyLength = sizeof(kMelody) / sizeof(kMelody[0]);
+struct Tone {
+  int frequency;
+  unsigned long duration_ms;
+};
+struct Melody {
+  const Tone* tones;
+  size_t length;
+};
+constexpr Tone kClassicChime[] = {{523, 180}, {659, 180}, {784, 180}, {1047, 260}};
+constexpr Tone kGentlePulse[] = {{523, 320}, {0, 160}, {659, 320}, {0, 500}};
+constexpr Tone kSunrise[] = {{392, 150}, {523, 150}, {659, 150}, {784, 150}, {1047, 360}};
+constexpr Tone kUrgent[] = {{880, 100}, {523, 100}, {880, 100}, {523, 100}, {0, 120}};
+constexpr Melody kMelodies[] = {{kClassicChime, sizeof(kClassicChime) / sizeof(kClassicChime[0])},
+                                {kGentlePulse, sizeof(kGentlePulse) / sizeof(kGentlePulse[0])},
+                                {kSunrise, sizeof(kSunrise) / sizeof(kSunrise[0])},
+                                {kUrgent, sizeof(kUrgent) / sizeof(kUrgent[0])}};
+const Melody& melodyFor(AlarmRingtone ringtone) {
+  const uint8_t index = static_cast<uint8_t>(ringtone);
+  return kMelodies[index < static_cast<uint8_t>(AlarmRingtone::Count) ? index : 0];
+}
 }  // namespace
 
 Esp32PassiveBuzzer::Esp32PassiveBuzzer(int pin, int channel)
-    : pin_(pin), channel_(channel), last_note_change_ms_(0), note_index_(0), active_(false), initialized_(false) {}
+    : pin_(pin),
+      channel_(channel),
+      last_note_change_ms_(0),
+      note_index_(0),
+      ringtone_(kDefaultAlarmRingtone),
+      active_(false),
+      initialized_(false) {}
 
 void Esp32PassiveBuzzer::begin() {
   if (pin_ < 0) {
@@ -32,7 +57,7 @@ void Esp32PassiveBuzzer::begin() {
   initialized_ = true;
 }
 
-void Esp32PassiveBuzzer::start() {
+void Esp32PassiveBuzzer::start(AlarmRingtone ringtone) {
   if (!initialized_) {
     begin();
   }
@@ -41,6 +66,7 @@ void Esp32PassiveBuzzer::start() {
   }
 
   active_ = true;
+  ringtone_ = ringtone;
   note_index_ = 0;
   last_note_change_ms_ = 0;
   playCurrentNote();
@@ -60,11 +86,12 @@ void Esp32PassiveBuzzer::update() {
   }
 
   const unsigned long now_ms = millis();
-  if (last_note_change_ms_ != 0 && (now_ms - last_note_change_ms_) < kNoteDurationMs) {
+  const Melody& melody = melodyFor(ringtone_);
+  if (last_note_change_ms_ != 0 && (now_ms - last_note_change_ms_) < melody.tones[note_index_].duration_ms) {
     return;
   }
 
-  note_index_ = (note_index_ + 1) % static_cast<int>(kMelodyLength);
+  note_index_ = (note_index_ + 1) % static_cast<int>(melody.length);
   playCurrentNote();
 }
 
@@ -73,7 +100,7 @@ void Esp32PassiveBuzzer::playCurrentNote() {
     return;
   }
 
-  ledcWriteTone(channel_, kMelody[note_index_]);
+  ledcWriteTone(channel_, melodyFor(ringtone_).tones[note_index_].frequency);
   last_note_change_ms_ = millis();
 }
 #endif

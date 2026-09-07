@@ -90,7 +90,7 @@ void runBuzzerSelfTest() {
   }
 
   Serial.printf("Running buzzer self-test on GPIO %d.\n", BUZZER_PIN);
-  g_alarm_buzzer.start();
+  g_alarm_buzzer.start(kDefaultAlarmRingtone);
   delay(kBuzzerSelfTestMs);
   g_alarm_buzzer.update();
   delay(kBuzzerSelfTestMs);

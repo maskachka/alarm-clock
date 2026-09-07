@@ -8,8 +8,9 @@
 
 namespace {
 
-ClockTime makeTime(uint8_t hour, uint8_t minute, uint8_t second = 0, uint8_t weekday = 0) {
-  ClockTime time_value = {hour, minute, second, weekday};
+ClockTime makeTime(uint8_t hour, uint8_t minute, uint8_t second = 0, uint8_t weekday = 0, uint8_t day = 0,
+                   uint8_t month = 0) {
+  ClockTime time_value = {hour, minute, second, weekday, day, month};
   return time_value;
 }
 
@@ -21,6 +22,7 @@ void testAlarmServiceDefaults() {
   TEST_ASSERT_EQUAL_UINT8(7, alarm_service.hour());
   TEST_ASSERT_EQUAL_UINT8(0, alarm_service.minute());
   TEST_ASSERT_EQUAL_UINT8(AlarmService::kEveryDayMask, alarm_service.weekdayMask(0));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(kDefaultAlarmRingtone), static_cast<uint8_t>(alarm_service.ringtone(0)));
 }
 
 void testAlarmServiceAddsAlarmWithRequestedTime() {
@@ -31,20 +33,27 @@ void testAlarmServiceAddsAlarmWithRequestedTime() {
   TEST_ASSERT_EQUAL_UINT8(23, alarm_service.hour(1));
   TEST_ASSERT_EQUAL_UINT8(59, alarm_service.minute(1));
   TEST_ASSERT_FALSE(alarm_service.isEnabled(1));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(kDefaultAlarmRingtone), static_cast<uint8_t>(alarm_service.ringtone(1)));
 }
 
-void testAlarmServiceDismissesAllSimultaneouslyRingingAlarms() {
+void testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging() {
   AlarmService alarm_service;
   TEST_ASSERT_TRUE(alarm_service.addAlarm(7, 0));
   alarm_service.setEnabled(0, true);
   alarm_service.setEnabled(1, true);
   TEST_ASSERT_TRUE(alarm_service.update(makeTime(7, 0)));
-  TEST_ASSERT_TRUE(alarm_service.isRinging(0));
+  TEST_ASSERT_FALSE(alarm_service.isRinging(0));
   TEST_ASSERT_TRUE(alarm_service.isRinging(1));
-  TEST_ASSERT_EQUAL_UINT8(2, alarm_service.dismissAllRinging());
+  TEST_ASSERT_EQUAL_UINT8(1, alarm_service.dismissAllRinging());
   TEST_ASSERT_FALSE(alarm_service.hasRingingAlarm());
-  TEST_ASSERT_FALSE(alarm_service.isEnabled(0));
-  TEST_ASSERT_FALSE(alarm_service.isEnabled(1));
+  TEST_ASSERT_TRUE(alarm_service.isEnabled(0));
+  TEST_ASSERT_TRUE(alarm_service.isEnabled(1));
+}
+
+void testAlarmServiceStoresPerAlarmRingtone() {
+  AlarmService alarm_service;
+  alarm_service.setRingtone(0, AlarmRingtone::Urgent);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AlarmRingtone::Urgent), static_cast<uint8_t>(alarm_service.ringtone(0)));
 }
 
 void testAlarmServiceWrapsHourAndMinute() {
@@ -109,6 +118,62 @@ void testAlarmServiceDoesNotRingWhenNoWeekdaysAreSelected() {
   TEST_ASSERT_FALSE(alarm_service.update(makeTime(6, 30, 0, 1)));
 }
 
+void testAlarmServiceFindsNextEnabledOccurrenceUsingRepeatRules() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(0, 15);
+  alarm_service.setWeekdayMask(0, static_cast<uint8_t>(1u << 1));  // Monday
+  alarm_service.setEnabled(0, true);
+  TEST_ASSERT_TRUE(alarm_service.addAlarm(19, 30));
+  alarm_service.setWeekdayMask(1, static_cast<uint8_t>(1u << 0));  // Sunday
+  alarm_service.setEnabled(1, true);
+
+  AlarmService::NextOccurrence next = {};
+  TEST_ASSERT_TRUE(alarm_service.nextOccurrence(makeTime(12, 0, 0, 0), next));
+  TEST_ASSERT_EQUAL_UINT8(1, next.alarm_index);
+  TEST_ASSERT_EQUAL_UINT8(0, next.days_from_now);
+  TEST_ASSERT_EQUAL_UINT16(450, next.minutes_until);
+  TEST_ASSERT_EQUAL_UINT8(19, next.hour);
+  TEST_ASSERT_EQUAL_UINT8(30, next.minute);
+}
+
+void testAlarmServiceFindsTomorrowWhenTodaysAlarmHasPassed() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(6, 30);
+  alarm_service.setWeekdayMask(0, static_cast<uint8_t>(1u << 1));  // Monday
+  alarm_service.setEnabled(0, true);
+
+  AlarmService::NextOccurrence next = {};
+  TEST_ASSERT_TRUE(alarm_service.nextOccurrence(makeTime(7, 0, 0, 0), next));  // Sunday
+  TEST_ASSERT_EQUAL_UINT8(1, next.days_from_now);
+  TEST_ASSERT_EQUAL_UINT16(1410, next.minutes_until);
+}
+
+void testAlarmServiceFindsNextWeeksOnlySelectedWeekdayAfterItHasPassed() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(6, 30);
+  alarm_service.setWeekdayMask(0, static_cast<uint8_t>(1u << 0));  // Sunday
+  alarm_service.setEnabled(0, true);
+
+  AlarmService::NextOccurrence next = {};
+  TEST_ASSERT_TRUE(alarm_service.nextOccurrence(makeTime(7, 0, 0, 0), next));
+  TEST_ASSERT_EQUAL_UINT8(7, next.days_from_now);
+  TEST_ASSERT_EQUAL_UINT16(10050, next.minutes_until);
+}
+
+void testAlarmServiceSnoozesRingingAlarmForTenMinutes() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(6, 30);
+  alarm_service.setEnabled(0, true);
+  TEST_ASSERT_TRUE(alarm_service.update(makeTime(6, 30, 0, 0)));
+
+  TEST_ASSERT_EQUAL_UINT8(1, alarm_service.snoozeAllRinging(makeTime(6, 30, 0, 0)));
+  TEST_ASSERT_FALSE(alarm_service.isRinging());
+  TEST_ASSERT_TRUE(alarm_service.isEnabled());
+  TEST_ASSERT_FALSE(alarm_service.update(makeTime(6, 39, 0, 0)));
+  TEST_ASSERT_TRUE(alarm_service.update(makeTime(6, 40, 0, 0)));
+  TEST_ASSERT_TRUE(alarm_service.isRinging());
+}
+
 void testClockFormatterFormatsTimeValues() {
   char hhmm[6] = {};
   char hhmmss[9] = {};
@@ -118,6 +183,12 @@ void testClockFormatterFormatsTimeValues() {
 
   TEST_ASSERT_EQUAL_UINT32(8, ClockFormatter::formatHHMMSS(makeTime(4, 5, 6), hhmmss, sizeof(hhmmss)));
   TEST_ASSERT_EQUAL_STRING("04:05:06", hhmmss);
+}
+
+void testClockFormatterFormatsShortDate() {
+  char date[16] = {};
+  TEST_ASSERT_EQUAL_UINT32(10, ClockFormatter::formatShortDate(makeTime(15, 1, 0, 0, 6, 9), date, sizeof(date)));
+  TEST_ASSERT_EQUAL_STRING("Sun, Sep 6", date);
 }
 
 void testClockFormatterHandlesNullAndZeroBuffers() {
@@ -187,6 +258,45 @@ void testControllerRefreshKeepsColonInClockText() {
   controller.refresh(true, makeTime(6, 30, 1));
 
   TEST_ASSERT_EQUAL_STRING("06:30", controller.state().clock_text);
+}
+
+void testControllerLabelsTomorrowAlarmEvenWhenItIsLessThanTwentyFourHoursAway() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(5, 45);
+  alarm_service.setWeekdayMask(0, static_cast<uint8_t>(1u << 1));  // Monday
+  alarm_service.setEnabled(0, true);
+  ClockAppController controller(alarm_service);
+  controller.initialize();
+
+  controller.refresh(true, makeTime(15, 17, 0, 0, 6, 9));  // Sunday, Sep 6
+
+  TEST_ASSERT_EQUAL_STRING("Next alarm tomorrow in 14h 28m, at 05:45", controller.state().next_alarm_text);
+}
+
+void testControllerOmitsTodayAndZeroHoursFromNextAlarmText() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(21, 30);
+  alarm_service.setEnabled(0, true);
+  ClockAppController controller(alarm_service);
+  controller.initialize();
+
+  controller.refresh(true, makeTime(20, 31, 0, 0, 6, 9));
+
+  TEST_ASSERT_EQUAL_STRING("Next alarm in 59m, at 21:30", controller.state().next_alarm_text);
+}
+
+void testControllerPrioritizesSnoozeStatusInNextAlarmText() {
+  AlarmService alarm_service;
+  alarm_service.setAlarm(21, 36);
+  alarm_service.setEnabled(0, true);
+  TEST_ASSERT_TRUE(alarm_service.update(makeTime(21, 36, 0, 0)));
+  TEST_ASSERT_EQUAL_UINT8(1, alarm_service.snoozeAllRinging(makeTime(21, 36, 0, 0)));
+  ClockAppController controller(alarm_service);
+  controller.initialize();
+
+  controller.refresh(true, makeTime(21, 36, 0, 0));
+
+  TEST_ASSERT_EQUAL_STRING("Snoozing for 10m...", controller.state().next_alarm_text);
 }
 
 void testControllerRefreshKeepsBuzzerActiveUntilDismissed() {
@@ -312,20 +422,29 @@ int main(int argc, char** argv) {
   UNITY_BEGIN();
   RUN_TEST(testAlarmServiceDefaults);
   RUN_TEST(testAlarmServiceAddsAlarmWithRequestedTime);
-  RUN_TEST(testAlarmServiceDismissesAllSimultaneouslyRingingAlarms);
+  RUN_TEST(testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging);
+  RUN_TEST(testAlarmServiceStoresPerAlarmRingtone);
   RUN_TEST(testAlarmServiceWrapsHourAndMinute);
   RUN_TEST(testAlarmServiceDoesNotRingWhenDisabled);
   RUN_TEST(testAlarmServiceTriggersOnlyOncePerMinute);
   RUN_TEST(testAlarmServiceDismissSuppressesSameMinuteButAllowsLaterRetrigger);
   RUN_TEST(testAlarmServiceOnlyRingsOnSelectedWeekdays);
   RUN_TEST(testAlarmServiceDoesNotRingWhenNoWeekdaysAreSelected);
+  RUN_TEST(testAlarmServiceFindsNextEnabledOccurrenceUsingRepeatRules);
+  RUN_TEST(testAlarmServiceFindsTomorrowWhenTodaysAlarmHasPassed);
+  RUN_TEST(testAlarmServiceFindsNextWeeksOnlySelectedWeekdayAfterItHasPassed);
+  RUN_TEST(testAlarmServiceSnoozesRingingAlarmForTenMinutes);
   RUN_TEST(testClockFormatterFormatsTimeValues);
+  RUN_TEST(testClockFormatterFormatsShortDate);
   RUN_TEST(testClockFormatterHandlesNullAndZeroBuffers);
   RUN_TEST(testClockFormatterTruncatesSafely);
   RUN_TEST(testControllerInitializeSetsDefaultViewState);
   RUN_TEST(testControllerRefreshUnavailableKeepsPlaceholderClock);
   RUN_TEST(testControllerRefreshStartsAndUpdatesBuzzerWhenAlarmTriggers);
   RUN_TEST(testControllerRefreshKeepsColonInClockText);
+  RUN_TEST(testControllerLabelsTomorrowAlarmEvenWhenItIsLessThanTwentyFourHoursAway);
+  RUN_TEST(testControllerOmitsTodayAndZeroHoursFromNextAlarmText);
+  RUN_TEST(testControllerPrioritizesSnoozeStatusInNextAlarmText);
   RUN_TEST(testControllerRefreshKeepsBuzzerActiveUntilDismissed);
   RUN_TEST(testControllerToggleEnablesAlarm);
   RUN_TEST(testControllerToggleDisablesAlarmAndStopsBuzzer);

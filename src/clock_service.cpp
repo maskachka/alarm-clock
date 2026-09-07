@@ -78,6 +78,8 @@ bool ClockService::getCurrentTime(ClockTime& out_time) {
   out_time.minute = static_cast<uint8_t>(local_time.tm_min);
   out_time.second = static_cast<uint8_t>(local_time.tm_sec);
   out_time.weekday = static_cast<uint8_t>(local_time.tm_wday);
+  out_time.day = static_cast<uint8_t>(local_time.tm_mday);
+  out_time.month = static_cast<uint8_t>(local_time.tm_mon + 1);
   return true;
 #else
   time_t now = time(nullptr);
@@ -97,6 +99,8 @@ bool ClockService::getCurrentTime(ClockTime& out_time) {
   out_time.minute = static_cast<uint8_t>(local_time.tm_min);
   out_time.second = static_cast<uint8_t>(local_time.tm_sec);
   out_time.weekday = static_cast<uint8_t>(local_time.tm_wday);
+  out_time.day = static_cast<uint8_t>(local_time.tm_mday);
+  out_time.month = static_cast<uint8_t>(local_time.tm_mon + 1);
   return true;
 #endif
 }
