@@ -221,8 +221,8 @@ void ClockAppController::setNextAlarmText(const ClockTime& time_value) {
     snprintf(state_.next_alarm_text, sizeof(state_.next_alarm_text), "Next alarm in %s, at %02u:%02u", duration,
              static_cast<unsigned>(next.hour), static_cast<unsigned>(next.minute));
   } else if (next.days_from_now == 1) {
-    snprintf(state_.next_alarm_text, sizeof(state_.next_alarm_text), "Next alarm tomorrow in %s, at %02u:%02u",
-             duration, static_cast<unsigned>(next.hour), static_cast<unsigned>(next.minute));
+    snprintf(state_.next_alarm_text, sizeof(state_.next_alarm_text), "Next alarm tomorrow at %02u:%02u",
+             static_cast<unsigned>(next.hour), static_cast<unsigned>(next.minute));
   } else {
     static constexpr const char* kWeekdayNames[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     snprintf(state_.next_alarm_text, sizeof(state_.next_alarm_text), "Next alarm %s in %s, at %02u:%02u",

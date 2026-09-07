@@ -274,13 +274,6 @@ uint8_t AlarmService::snoozeAllRinging(const ClockTime& now, uint16_t duration_m
   }
   return snoozed;
 }
-void AlarmService::setAlarm(uint8_t h, uint8_t m) { setAlarm(0, h, m); }
-void AlarmService::setEnabled(bool enabled) { setEnabled(0, enabled); }
-void AlarmService::dismiss() { dismiss(0); }
-bool AlarmService::isEnabled() const { return isEnabled(0); }
-bool AlarmService::isRinging() const { return isRinging(0); }
-uint8_t AlarmService::hour() const { return hour(0); }
-uint8_t AlarmService::minute() const { return minute(0); }
 bool AlarmService::update(const ClockTime& now) {
   const int16_t current = static_cast<int16_t>(now.hour) * 60 + now.minute;
   if (current != last_checked_minute_) {

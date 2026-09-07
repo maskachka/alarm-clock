@@ -44,15 +44,6 @@ class AlarmService {
   bool nextSnoozeOccurrence(const ClockTime& now, NextOccurrence& occurrence) const;
   uint8_t snoozeAllRinging(const ClockTime& now, uint16_t duration_minutes = 10);
 
-  void setAlarm(uint8_t hour, uint8_t minute);
-  void setEnabled(bool enabled);
-  void dismiss();
-
-  bool isEnabled() const;
-  bool isRinging() const;
-  uint8_t hour() const;
-  uint8_t minute() const;
-
   bool update(const ClockTime& now);
 
  private:
