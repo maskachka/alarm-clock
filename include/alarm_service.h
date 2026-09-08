@@ -3,11 +3,12 @@
 #include <stdint.h>
 
 #include "alarm_ringtone.h"
+#include "alarm_storage.h"
 #include "clock_time.h"
 
 class AlarmService {
  public:
-  static constexpr uint8_t kMaxAlarms = 4;
+  static constexpr uint8_t kMaxAlarms = StoredAlarms::kMaxAlarms;
   static constexpr uint8_t kEveryDayMask = 0x7f;
 
   struct NextOccurrence {
@@ -20,6 +21,7 @@ class AlarmService {
   };
 
   AlarmService();
+  explicit AlarmService(AlarmStorage& storage);
 
   void load();
 
@@ -66,6 +68,7 @@ class AlarmService {
   void persist() const;
 
   Alarm alarms_[kMaxAlarms];
+  AlarmStorage* storage_;
   uint8_t count_;
   int16_t last_checked_minute_;
 };

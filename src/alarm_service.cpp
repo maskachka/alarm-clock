@@ -1,92 +1,27 @@
 #include "alarm_service.h"
 
-#if defined(ARDUINO)
-#include <Preferences.h>
-#endif
+AlarmService::AlarmService() : alarms_{}, storage_(nullptr), count_(1), last_checked_minute_(-1) {
+  alarms_[0] = {7, 0, kEveryDayMask, kDefaultAlarmRingtone, false, false, false, false, 0, 0};
+}
 
-namespace {
-struct StoredAlarmV1 {
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t enabled;
-};
-
-struct StoredAlarm {
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t enabled;
-  uint8_t weekday_mask;
-  uint8_t ringtone;
-};
-
-struct StoredAlarmV2 {
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t enabled;
-  uint8_t weekday_mask;
-};
-
-constexpr uint8_t kStorageVersion = 3;
-constexpr const char* kStorageNamespace = "alarm-clock";
-constexpr const char* kVersionKey = "version";
-constexpr const char* kCountKey = "count";
-constexpr const char* kAlarmsKey = "alarms";
-}  // namespace
-
-AlarmService::AlarmService() : alarms_{}, count_(1), last_checked_minute_(-1) {
+AlarmService::AlarmService(AlarmStorage& storage) : alarms_{}, storage_(&storage), count_(1), last_checked_minute_(-1) {
   alarms_[0] = {7, 0, kEveryDayMask, kDefaultAlarmRingtone, false, false, false, false, 0, 0};
 }
 void AlarmService::load() {
-#if defined(ARDUINO)
-  Preferences preferences;
-  if (!preferences.begin(kStorageNamespace, true)) return;
-  if (!preferences.isKey(kCountKey)) {
-    preferences.end();
-    return;
-  }
+  if (storage_ == nullptr) return;
+  StoredAlarms stored = {};
+  bool migrated = false;
+  if (!storage_->load(stored, migrated)) return;
 
-  const uint8_t stored_count = preferences.getUChar(kCountKey, 0);
-  const uint8_t stored_version = preferences.getUChar(kVersionKey, 1);
-  const size_t record_size = stored_version >= kStorageVersion
-                                 ? sizeof(StoredAlarm)
-                                 : (stored_version == 2 ? sizeof(StoredAlarmV2) : sizeof(StoredAlarmV1));
-  if (stored_count > kMaxAlarms ||
-      (stored_count > 0 && preferences.getBytesLength(kAlarmsKey) != stored_count * record_size)) {
-    preferences.end();
-    return;
-  }
-
-  StoredAlarm stored[kMaxAlarms] = {};
-  if (stored_count > 0) {
-    if (stored_version >= kStorageVersion) {
-      preferences.getBytes(kAlarmsKey, stored, stored_count * sizeof(StoredAlarm));
-    } else if (stored_version == 2) {
-      StoredAlarmV2 legacy[kMaxAlarms] = {};
-      preferences.getBytes(kAlarmsKey, legacy, stored_count * sizeof(StoredAlarmV2));
-      for (uint8_t i = 0; i < stored_count; ++i) {
-        stored[i] = {legacy[i].hour, legacy[i].minute, legacy[i].enabled, legacy[i].weekday_mask,
-                     static_cast<uint8_t>(kDefaultAlarmRingtone)};
-      }
-    } else {
-      StoredAlarmV1 legacy[kMaxAlarms] = {};
-      preferences.getBytes(kAlarmsKey, legacy, stored_count * sizeof(StoredAlarmV1));
-      for (uint8_t i = 0; i < stored_count; ++i) {
-        stored[i] = {legacy[i].hour, legacy[i].minute, legacy[i].enabled, kEveryDayMask,
-                     static_cast<uint8_t>(kDefaultAlarmRingtone)};
-      }
-    }
-  }
-  preferences.end();
-
-  count_ = stored_count;
+  count_ = stored.count;
   for (uint8_t i = 0; i < count_; ++i) {
-    alarms_[i] = {static_cast<uint8_t>(stored[i].hour % 24),
-                  static_cast<uint8_t>(stored[i].minute % 60),
-                  static_cast<uint8_t>(stored[i].weekday_mask & kEveryDayMask),
-                  stored[i].ringtone < static_cast<uint8_t>(AlarmRingtone::Count)
-                      ? static_cast<AlarmRingtone>(stored[i].ringtone)
+    alarms_[i] = {static_cast<uint8_t>(stored.alarms[i].hour % 24),
+                  static_cast<uint8_t>(stored.alarms[i].minute % 60),
+                  static_cast<uint8_t>(stored.alarms[i].weekday_mask & kEveryDayMask),
+                  stored.alarms[i].ringtone < static_cast<uint8_t>(AlarmRingtone::Count)
+                      ? static_cast<AlarmRingtone>(stored.alarms[i].ringtone)
                       : kDefaultAlarmRingtone,
-                  stored[i].enabled != 0,
+                  stored.alarms[i].enabled != 0,
                   false,
                   false,
                   false,
@@ -94,8 +29,7 @@ void AlarmService::load() {
                   0};
   }
   last_checked_minute_ = -1;
-  if (stored_version < kStorageVersion) persist();
-#endif
+  if (migrated) persist();
 }
 uint8_t AlarmService::count() const { return count_; }
 bool AlarmService::addAlarm(uint8_t h, uint8_t m) {
@@ -316,21 +250,12 @@ bool AlarmService::isValidIndex(uint8_t i) const { return i < count_; }
 AlarmService::Alarm& AlarmService::alarm(uint8_t i) { return alarms_[i]; }
 const AlarmService::Alarm& AlarmService::alarm(uint8_t i) const { return alarms_[i]; }
 void AlarmService::persist() const {
-#if defined(ARDUINO)
-  Preferences preferences;
-  if (!preferences.begin(kStorageNamespace, false)) return;
-  preferences.putUChar(kCountKey, count_);
-  if (count_ == 0)
-    preferences.remove(kAlarmsKey);
-  else {
-    StoredAlarm stored[kMaxAlarms] = {};
-    for (uint8_t i = 0; i < count_; ++i) {
-      stored[i] = {alarms_[i].hour, alarms_[i].minute, static_cast<uint8_t>(alarms_[i].enabled),
-                   alarms_[i].weekday_mask, static_cast<uint8_t>(alarms_[i].ringtone)};
-    }
-    preferences.putBytes(kAlarmsKey, stored, count_ * sizeof(StoredAlarm));
+  if (storage_ == nullptr) return;
+  StoredAlarms stored = {};
+  stored.count = count_;
+  for (uint8_t i = 0; i < count_; ++i) {
+    stored.alarms[i] = {alarms_[i].hour, alarms_[i].minute, static_cast<uint8_t>(alarms_[i].enabled),
+                        alarms_[i].weekday_mask, static_cast<uint8_t>(alarms_[i].ringtone)};
   }
-  preferences.putUChar(kVersionKey, kStorageVersion);
-  preferences.end();
-#endif
+  storage_->save(stored);
 }

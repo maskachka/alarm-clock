@@ -1,6 +1,7 @@
 #include <unity.h>
 
 #include "alarm_service.h"
+#include "alarm_storage.h"
 #include "test_helpers.h"
 
 void testAlarmServiceDefaults() {
@@ -41,6 +42,30 @@ void testAlarmServiceStoresPerAlarmRingtone() {
   AlarmService alarm_service;
   alarm_service.setRingtone(0, AlarmRingtone::Urgent);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AlarmRingtone::Urgent), static_cast<uint8_t>(alarm_service.ringtone(0)));
+}
+
+void testAlarmServiceRestoresSavedAlarmsFromStorage() {
+  InMemoryAlarmStorage storage;
+  {
+    AlarmService alarms(storage);
+    alarms.setAlarm(0, 6, 45);
+    alarms.setWeekdayMask(0, static_cast<uint8_t>((1u << 1) | (1u << 3)));
+    alarms.setRingtone(0, AlarmRingtone::Sunrise);
+    alarms.setEnabled(0, true);
+    TEST_ASSERT_TRUE(alarms.addAlarm(19, 30));
+    alarms.setRingtone(1, AlarmRingtone::Urgent);
+  }
+
+  AlarmService restored(storage);
+  restored.load();
+
+  TEST_ASSERT_EQUAL_UINT8(2, restored.count());
+  TEST_ASSERT_EQUAL_UINT8(6, restored.hour(0));
+  TEST_ASSERT_EQUAL_UINT8(45, restored.minute(0));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>((1u << 1) | (1u << 3)), restored.weekdayMask(0));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AlarmRingtone::Sunrise), static_cast<uint8_t>(restored.ringtone(0)));
+  TEST_ASSERT_TRUE(restored.isEnabled(0));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(AlarmRingtone::Urgent), static_cast<uint8_t>(restored.ringtone(1)));
 }
 
 void testAlarmServiceWrapsHourAndMinute() {

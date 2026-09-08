@@ -33,6 +33,7 @@
 
 #include "alarm_buzzer.h"
 #include "alarm_service.h"
+#include "alarm_storage.h"
 #include "clock_app.h"
 #include "clock_service.h"
 #include "buzzer_configuration.h"
@@ -61,7 +62,8 @@ static constexpr unsigned long kBuzzerSelfTestMs = 350;
 static constexpr bool kRunStartupBuzzerSelfTest = false;
 
 ClockService g_clock_service(kTimezone, kNtpServer);
-AlarmService g_alarm_service;
+PreferencesAlarmStorage g_alarm_storage;
+AlarmService g_alarm_service(g_alarm_storage);
 Esp32PassiveBuzzer g_alarm_buzzer(BUZZER_PIN);
 ClockApp g_clock_app(g_clock_service, g_alarm_service, g_alarm_buzzer);
 

@@ -4,6 +4,7 @@ void testAlarmServiceDefaults();
 void testAlarmServiceAddsAlarmWithRequestedTime();
 void testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging();
 void testAlarmServiceStoresPerAlarmRingtone();
+void testAlarmServiceRestoresSavedAlarmsFromStorage();
 void testAlarmServiceWrapsHourAndMinute();
 void testAlarmServiceDoesNotRingWhenDisabled();
 void testAlarmServiceTriggersOnlyOncePerMinute();
@@ -44,6 +45,7 @@ int main(int argc, char** argv) {
   RUN_TEST(testAlarmServiceAddsAlarmWithRequestedTime);
   RUN_TEST(testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging);
   RUN_TEST(testAlarmServiceStoresPerAlarmRingtone);
+  RUN_TEST(testAlarmServiceRestoresSavedAlarmsFromStorage);
   RUN_TEST(testAlarmServiceWrapsHourAndMinute);
   RUN_TEST(testAlarmServiceDoesNotRingWhenDisabled);
   RUN_TEST(testAlarmServiceTriggersOnlyOncePerMinute);

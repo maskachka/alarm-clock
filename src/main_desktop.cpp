@@ -6,6 +6,7 @@
 
 #include "alarm_buzzer.h"
 #include "alarm_service.h"
+#include "alarm_storage.h"
 #include "clock_app.h"
 #include "clock_service.h"
 #include "display_configuration.h"
@@ -27,7 +28,8 @@ int main() {
 
   ClockService clock_service(kTimezone, kNtpServer);
   clock_service.begin(nullptr, nullptr);
-  AlarmService alarm_service;
+  InMemoryAlarmStorage alarm_storage;
+  AlarmService alarm_service(alarm_storage);
   SilentAlarmBuzzer alarm_buzzer;
 
   ClockApp app(clock_service, alarm_service, alarm_buzzer);
