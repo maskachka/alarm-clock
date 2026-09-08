@@ -5,6 +5,8 @@
 #include <src/drivers/x11/lv_x11.h>
 
 #include "alarm_buzzer.h"
+#include "app_settings_service.h"
+#include "app_settings_storage.h"
 #include "alarm_service.h"
 #include "alarm_storage.h"
 #include "clock_app.h"
@@ -30,9 +32,11 @@ int main() {
   clock_service.begin(nullptr, nullptr);
   InMemoryAlarmStorage alarm_storage;
   AlarmService alarm_service(alarm_storage);
+  InMemoryAppSettingsStorage app_settings_storage;
+  AppSettingsService app_settings(app_settings_storage);
   SilentAlarmBuzzer alarm_buzzer;
 
-  ClockApp app(clock_service, alarm_service, alarm_buzzer);
+  ClockApp app(clock_service, alarm_service, alarm_buzzer, app_settings);
   app.build();
 
   while (true) {

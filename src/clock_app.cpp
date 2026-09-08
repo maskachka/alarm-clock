@@ -8,10 +8,12 @@ namespace {
 constexpr uint32_t kRefreshPeriodMs = 50;
 }
 
-ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer)
+ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer,
+                   AppSettingsService& app_settings)
     : clock_service_(clock_service),
       alarm_service_(alarm_service),
       alarm_buzzer_(alarm_buzzer),
+      app_settings_(app_settings),
       controller_(alarm_service),
       clock_screen_(*this),
       alarm_settings_screen_(*this),
@@ -19,6 +21,8 @@ ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, Ala
       alarm_ringing_overlay_(*this),
       alarm_ringtone_settings_screen_(*this),
       alarm_list_screen_(*this),
+      settings_screen_(*this),
+      volume_settings_screen_(*this),
       refresh_timer_(nullptr),
       buzzer_active_(false),
       ringtone_preview_active_(false),
@@ -26,15 +30,19 @@ ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, Ala
 
 void ClockApp::build() {
   alarm_service_.load();
+  app_settings_.load();
   alarm_buzzer_.begin();
+  alarm_buzzer_.setVolume(app_settings_.alarmVolume());
 
   lv_obj_t* screen = lv_screen_active();
   UiTheme::applyToScreen(screen);
   clock_screen_.build(screen);
+  settings_screen_.build(screen);
   alarm_list_screen_.build(screen);
   alarm_settings_screen_.build(screen);
   confirmation_dialog_view_.build(screen);
   alarm_ringtone_settings_screen_.build(screen);
+  volume_settings_screen_.build(screen);
   alarm_ringing_overlay_.build(screen);
 
   refresh_timer_ = lv_timer_create(onRefreshTimer, kRefreshPeriodMs, this);
@@ -52,8 +60,36 @@ void ClockApp::onRefreshTimer(lv_timer_t* timer) {
 
 void ClockApp::onSettingsRequested() {
   clock_screen_.hide();
+  settings_screen_.show();
+}
+
+void ClockApp::onAlarmsSettingsRequested() {
+  settings_screen_.hide();
   alarm_list_screen_.render(alarm_service_);
   alarm_list_screen_.show();
+}
+
+void ClockApp::onVolumeSettingsRequested() {
+  settings_screen_.hide();
+  volume_settings_screen_.setVolume(app_settings_.alarmVolume());
+  volume_settings_screen_.show();
+}
+
+void ClockApp::onSettingsBackRequested() {
+  settings_screen_.hide();
+  clock_screen_.show();
+}
+
+void ClockApp::onVolumeSaved(uint8_t volume) {
+  app_settings_.setAlarmVolume(volume);
+  alarm_buzzer_.setVolume(app_settings_.alarmVolume());
+  volume_settings_screen_.hide();
+  settings_screen_.show();
+}
+
+void ClockApp::onVolumeSettingsBackRequested() {
+  volume_settings_screen_.hide();
+  settings_screen_.show();
 }
 
 void ClockApp::onAlarmAddRequested() {
@@ -101,7 +137,7 @@ void ClockApp::onAlarmToggled(uint8_t index) {
 
 void ClockApp::onAlarmListBackRequested() {
   alarm_list_screen_.hide();
-  clock_screen_.show();
+  settings_screen_.show();
 }
 
 void ClockApp::onAlarmSettingsApplied(uint8_t hour, uint8_t minute, uint8_t weekday_mask) {

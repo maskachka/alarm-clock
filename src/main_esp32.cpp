@@ -32,6 +32,8 @@
 #include <XPT2046_Touchscreen.h>
 
 #include "alarm_buzzer.h"
+#include "app_settings_service.h"
+#include "app_settings_storage.h"
 #include "alarm_service.h"
 #include "alarm_storage.h"
 #include "clock_app.h"
@@ -64,8 +66,10 @@ static constexpr bool kRunStartupBuzzerSelfTest = false;
 ClockService g_clock_service(kTimezone, kNtpServer);
 PreferencesAlarmStorage g_alarm_storage;
 AlarmService g_alarm_service(g_alarm_storage);
+PreferencesAppSettingsStorage g_app_settings_storage;
+AppSettingsService g_app_settings(g_app_settings_storage);
 Esp32PassiveBuzzer g_alarm_buzzer(BUZZER_PIN);
-ClockApp g_clock_app(g_clock_service, g_alarm_service, g_alarm_buzzer);
+ClockApp g_clock_app(g_clock_service, g_alarm_service, g_alarm_buzzer, g_app_settings);
 
 void touchscreen_read(lv_indev_t* indev, lv_indev_data_t* data) {
   LV_UNUSED(indev);

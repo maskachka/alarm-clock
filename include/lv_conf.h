@@ -498,7 +498,7 @@
 
 #define LV_USE_ARC        0
 
-#define LV_USE_BAR        0
+#define LV_USE_BAR        1
 
 #define LV_USE_BUTTON        1
 
@@ -555,7 +555,7 @@
 
 #define LV_USE_SCALE      0
 
-#define LV_USE_SLIDER     0   /*Requires: lv_bar*/
+#define LV_USE_SLIDER     1   /*Requires: lv_bar*/
 
 #define LV_USE_SPAN       0
 #if LV_USE_SPAN

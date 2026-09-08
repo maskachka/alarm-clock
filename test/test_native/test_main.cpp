@@ -1,5 +1,8 @@
 #include <unity.h>
 
+void testAppSettingsDefaultsToSeventyPercentVolume();
+void testAppSettingsRestoresPersistedVolume();
+void testAppSettingsClampsVolumeToOneHundredPercent();
 void testAlarmServiceDefaults();
 void testAlarmServiceAddsAlarmWithRequestedTime();
 void testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging();
@@ -41,6 +44,9 @@ int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
   UNITY_BEGIN();
+  RUN_TEST(testAppSettingsDefaultsToSeventyPercentVolume);
+  RUN_TEST(testAppSettingsRestoresPersistedVolume);
+  RUN_TEST(testAppSettingsClampsVolumeToOneHundredPercent);
   RUN_TEST(testAlarmServiceDefaults);
   RUN_TEST(testAlarmServiceAddsAlarmWithRequestedTime);
   RUN_TEST(testAlarmServiceKeepsOnlyTheLatestSimultaneousAlarmRinging);

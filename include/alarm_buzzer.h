@@ -7,6 +7,7 @@ class AlarmBuzzer {
   virtual ~AlarmBuzzer() = default;
 
   virtual void begin() = 0;
+  virtual void setVolume(uint8_t volume) = 0;
   virtual void start(AlarmRingtone ringtone) = 0;
   virtual void stop() = 0;
   virtual void update() = 0;
@@ -15,6 +16,7 @@ class AlarmBuzzer {
 class SilentAlarmBuzzer : public AlarmBuzzer {
  public:
   void begin() override;
+  void setVolume(uint8_t volume) override;
   void start(AlarmRingtone ringtone) override;
   void stop() override;
   void update() override;
@@ -26,6 +28,7 @@ class Esp32PassiveBuzzer : public AlarmBuzzer {
   explicit Esp32PassiveBuzzer(int pin, int channel = 0);
 
   void begin() override;
+  void setVolume(uint8_t volume) override;
   void start(AlarmRingtone ringtone) override;
   void stop() override;
   void update() override;
@@ -38,6 +41,7 @@ class Esp32PassiveBuzzer : public AlarmBuzzer {
   unsigned long last_note_change_ms_;
   int note_index_;
   AlarmRingtone ringtone_;
+  uint8_t volume_;
   bool active_;
   bool initialized_;
 };

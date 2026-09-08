@@ -3,6 +3,9 @@
 #include <stdio.h>
 
 void SilentAlarmBuzzer::begin() {}
+void SilentAlarmBuzzer::setVolume(uint8_t volume) {
+  printf("Alarm buzzer: volume %u%%\n", static_cast<unsigned>(volume));
+}
 
 void SilentAlarmBuzzer::start(AlarmRingtone ringtone) {
   printf("Alarm buzzer: start ringtone %u\n", static_cast<unsigned>(ringtone));
@@ -44,6 +47,7 @@ Esp32PassiveBuzzer::Esp32PassiveBuzzer(int pin, int channel)
       last_note_change_ms_(0),
       note_index_(0),
       ringtone_(kDefaultAlarmRingtone),
+      volume_(70),
       active_(false),
       initialized_(false) {}
 
@@ -55,6 +59,11 @@ void Esp32PassiveBuzzer::begin() {
   ledcSetup(channel_, 2000, 8);
   ledcAttachPin(pin_, channel_);
   initialized_ = true;
+}
+
+void Esp32PassiveBuzzer::setVolume(uint8_t volume) {
+  volume_ = volume > 100 ? 100 : volume;
+  if (active_) playCurrentNote();
 }
 
 void Esp32PassiveBuzzer::start(AlarmRingtone ringtone) {
@@ -100,7 +109,9 @@ void Esp32PassiveBuzzer::playCurrentNote() {
     return;
   }
 
-  ledcWriteTone(channel_, melodyFor(ringtone_).tones[note_index_].frequency);
+  const int frequency = melodyFor(ringtone_).tones[note_index_].frequency;
+  ledcWriteTone(channel_, frequency);
+  ledcWrite(channel_, frequency == 0 ? 0 : static_cast<uint32_t>(volume_) * 255 / 100);
   last_note_change_ms_ = millis();
 }
 #endif

@@ -5,21 +5,27 @@
 #include "alarm_buzzer.h"
 #include "clock_app_controller.h"
 #include "clock_service.h"
+#include "app_settings_service.h"
 #include "screens/alarm_settings_screen.h"
 #include "screens/alarm_delete_confirmation_view.h"
 #include "screens/alarm_list_screen.h"
 #include "screens/alarm_ringing_overlay.h"
 #include "screens/alarm_ringtone_settings_screen.h"
 #include "screens/clock_screen.h"
+#include "screens/settings_screen.h"
+#include "screens/volume_settings_screen.h"
 
 class ClockApp : private ClockScreenListener,
                  private AlarmSettingsScreenListener,
                  private AlarmListScreenListener,
                  private ConfirmationDialogListener,
                  private AlarmRingingOverlayListener,
-                 private AlarmRingtoneSettingsScreenListener {
+                 private AlarmRingtoneSettingsScreenListener,
+                 private SettingsScreenListener,
+                 private VolumeSettingsScreenListener {
  public:
-  ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer);
+  ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer,
+           AppSettingsService& app_settings);
 
   void build();
 
@@ -44,6 +50,11 @@ class ClockApp : private ClockScreenListener,
   void onAlarmRingtoneSettingsBackRequested() override;
   void onAlarmRingtonePreviewStarted(AlarmRingtone ringtone) override;
   void onAlarmRingtonePreviewStopped() override;
+  void onAlarmsSettingsRequested() override;
+  void onVolumeSettingsRequested() override;
+  void onSettingsBackRequested() override;
+  void onVolumeSaved(uint8_t volume) override;
+  void onVolumeSettingsBackRequested() override;
 
   void refresh();
   void applyControllerState();
@@ -53,6 +64,7 @@ class ClockApp : private ClockScreenListener,
   ClockService& clock_service_;
   AlarmService& alarm_service_;
   AlarmBuzzer& alarm_buzzer_;
+  AppSettingsService& app_settings_;
   ClockAppController controller_;
   ClockScreen clock_screen_;
   AlarmSettingsScreen alarm_settings_screen_;
@@ -60,6 +72,8 @@ class ClockApp : private ClockScreenListener,
   AlarmRingingOverlay alarm_ringing_overlay_;
   AlarmRingtoneSettingsScreen alarm_ringtone_settings_screen_;
   AlarmListScreen alarm_list_screen_;
+  SettingsScreen settings_screen_;
+  VolumeSettingsScreen volume_settings_screen_;
   lv_timer_t* refresh_timer_;
   bool buzzer_active_;
   bool ringtone_preview_active_;
