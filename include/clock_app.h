@@ -30,7 +30,8 @@ class ClockApp : private ClockScreenListener,
   void build();
 
  private:
-  static void onRefreshTimer(lv_timer_t* timer);
+  static void onClockTimer(lv_timer_t* timer);
+  static void onBuzzerTimer(lv_timer_t* timer);
 
   void onSettingsRequested() override;
   void onAlarmAddRequested() override;
@@ -56,10 +57,20 @@ class ClockApp : private ClockScreenListener,
   void onVolumeSaved(uint8_t volume) override;
   void onVolumeSettingsBackRequested() override;
 
-  void refresh();
+  void pollClockAndAlarms();
+  void updateBuzzer();
   void applyControllerState();
   void applyControllerEffects(const ClockAppEffects& effects);
   void stopRingtonePreview();
+  bool renderedStateMatchesCurrent() const;
+  bool renderedAlarmsMatchCurrent() const;
+  void rememberRenderedState();
+
+  struct RenderedAlarm {
+    uint8_t hour;
+    uint8_t minute;
+    bool enabled;
+  };
 
   ClockService& clock_service_;
   AlarmService& alarm_service_;
@@ -74,7 +85,13 @@ class ClockApp : private ClockScreenListener,
   AlarmListScreen alarm_list_screen_;
   SettingsScreen settings_screen_;
   VolumeSettingsScreen volume_settings_screen_;
-  lv_timer_t* refresh_timer_;
+  lv_timer_t* clock_timer_;
+  lv_timer_t* buzzer_timer_;
+  ClockAppState rendered_state_;
+  RenderedAlarm rendered_alarms_[AlarmService::kMaxAlarms];
+  uint8_t rendered_alarm_count_;
+  bool has_rendered_state_;
+  bool rendered_ringing_overlay_visible_;
   bool buzzer_active_;
   bool ringtone_preview_active_;
   bool creating_alarm_;

@@ -1,12 +1,21 @@
 #include "screens/clock_screen.h"
 
+#include <cstring>
+
 #include "ui/icons.h"
 #include "ui/theme.h"
 namespace {
 constexpr int32_t kDigitWidth = 32, kSeparatorWidth = 16;
 }
 ClockScreen::ClockScreen(ClockScreenListener& l)
-    : listener_(l), root_(nullptr), date_(nullptr), next_alarm_(nullptr), digits_{} {}
+    : listener_(l),
+      root_(nullptr),
+      date_(nullptr),
+      next_alarm_(nullptr),
+      digits_{},
+      colon_blink_timer_(nullptr),
+      clock_text_{},
+      colon_visible_(true) {}
 void ClockScreen::build(lv_obj_t* parent) {
   root_ = lv_obj_create(parent);
   lv_obj_remove_style_all(root_);
@@ -63,6 +72,7 @@ void ClockScreen::build(lv_obj_t* parent) {
   lv_label_set_text(settings_label, "Settings");
   lv_obj_set_style_text_font(settings_label, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(settings_label, lv_color_hex(UiTheme::kAccent), 0);
+  colon_blink_timer_ = lv_timer_create(onColonBlinkTimer, 500, this);
 }
 void ClockScreen::render(const ClockAppState& s) {
   setDateText(s.date_text);
@@ -80,12 +90,23 @@ void ClockScreen::onSettingsPressed(lv_event_t* e) {
   auto* s = static_cast<ClockScreen*>(lv_event_get_user_data(e));
   if (s) s->listener_.onSettingsRequested();
 }
+void ClockScreen::onColonBlinkTimer(lv_timer_t* timer) {
+  auto* screen = static_cast<ClockScreen*>(lv_timer_get_user_data(timer));
+  if (screen == nullptr || lv_obj_has_flag(screen->root_, LV_OBJ_FLAG_HIDDEN)) return;
+  screen->colon_visible_ = !screen->colon_visible_;
+  screen->renderClockText();
+}
 void ClockScreen::setClockText(const char* t) {
   if (!t) return;
-  bool colon = (lv_tick_get() % 1000) < 850;
+  strncpy(clock_text_, t, sizeof(clock_text_));
+  clock_text_[sizeof(clock_text_) - 1] = '\0';
+  renderClockText();
+}
+
+void ClockScreen::renderClockText() {
   for (uint8_t i = 0; i < 5; ++i) {
-    char c = t[i] == '\0' ? ' ' : t[i];
-    if (i == 2 && c == ':' && !colon) c = ' ';
+    char c = clock_text_[i] == '\0' ? ' ' : clock_text_[i];
+    if (i == 2 && c == ':' && !colon_visible_) c = ' ';
     char x[2] = {c, '\0'};
     lv_label_set_text(digits_[i], x);
   }

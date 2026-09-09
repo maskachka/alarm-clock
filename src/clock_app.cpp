@@ -1,12 +1,14 @@
 #include "clock_app.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "ui/theme.h"
 
 namespace {
-constexpr uint32_t kRefreshPeriodMs = 50;
-}
+constexpr uint32_t kClockPollPeriodMs = 1000;
+constexpr uint32_t kBuzzerUpdatePeriodMs = 20;
+}  // namespace
 
 ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, AlarmBuzzer& alarm_buzzer,
                    AppSettingsService& app_settings)
@@ -23,7 +25,13 @@ ClockApp::ClockApp(ClockService& clock_service, AlarmService& alarm_service, Ala
       alarm_list_screen_(*this),
       settings_screen_(*this),
       volume_settings_screen_(*this),
-      refresh_timer_(nullptr),
+      clock_timer_(nullptr),
+      buzzer_timer_(nullptr),
+      rendered_state_{},
+      rendered_alarms_{},
+      rendered_alarm_count_(0),
+      has_rendered_state_(false),
+      rendered_ringing_overlay_visible_(false),
       buzzer_active_(false),
       ringtone_preview_active_(false),
       creating_alarm_(false) {}
@@ -45,17 +53,21 @@ void ClockApp::build() {
   volume_settings_screen_.build(screen);
   alarm_ringing_overlay_.build(screen);
 
-  refresh_timer_ = lv_timer_create(onRefreshTimer, kRefreshPeriodMs, this);
+  clock_timer_ = lv_timer_create(onClockTimer, kClockPollPeriodMs, this);
+  buzzer_timer_ = lv_timer_create(onBuzzerTimer, kBuzzerUpdatePeriodMs, this);
   controller_.initialize();
   applyControllerState();
-  refresh();
+  pollClockAndAlarms();
 }
 
-void ClockApp::onRefreshTimer(lv_timer_t* timer) {
+void ClockApp::onClockTimer(lv_timer_t* timer) {
   auto* app = static_cast<ClockApp*>(lv_timer_get_user_data(timer));
-  if (app != nullptr) {
-    app->refresh();
-  }
+  if (app != nullptr) app->pollClockAndAlarms();
+}
+
+void ClockApp::onBuzzerTimer(lv_timer_t* timer) {
+  auto* app = static_cast<ClockApp*>(lv_timer_get_user_data(timer));
+  if (app != nullptr) app->updateBuzzer();
 }
 
 void ClockApp::onSettingsRequested() {
@@ -194,7 +206,7 @@ void ClockApp::onAlarmRingtonePreviewStarted(AlarmRingtone ringtone) {
 
 void ClockApp::onAlarmRingtonePreviewStopped() { stopRingtonePreview(); }
 
-void ClockApp::refresh() {
+void ClockApp::pollClockAndAlarms() {
   ClockTime now;
   if (!clock_service_.getCurrentTime(now)) {
     applyControllerEffects(controller_.refresh(false, ClockTime{0, 0, 0, 0}));
@@ -203,31 +215,38 @@ void ClockApp::refresh() {
   }
 
   applyControllerEffects(controller_.refresh(true, now));
-  if (ringtone_preview_active_ && !alarm_service_.hasRingingAlarm()) alarm_buzzer_.update();
   applyControllerState();
+}
+
+void ClockApp::updateBuzzer() {
+  if (buzzer_active_ || ringtone_preview_active_) alarm_buzzer_.update();
 }
 
 void ClockApp::applyControllerState() {
   const ClockAppState& state = controller_.state();
-  clock_screen_.render(state);
-  alarm_list_screen_.render(alarm_service_);
+  const bool state_changed = !renderedStateMatchesCurrent();
+  const bool alarms_changed = !renderedAlarmsMatchCurrent();
+  const bool ringing = alarm_service_.hasRingingAlarm();
+  const bool overlay_changed = !has_rendered_state_ || ringing != rendered_ringing_overlay_visible_;
+  if (!state_changed && !alarms_changed && !overlay_changed) return;
 
-  if (state.alarm_settings_visible) {
-    alarm_settings_screen_.show();
-  } else {
-    alarm_settings_screen_.hide();
+  if (state_changed) {
+    clock_screen_.render(state);
+    if (state.alarm_settings_visible)
+      alarm_settings_screen_.show();
+    else
+      alarm_settings_screen_.hide();
+    if (state.ringtone_settings_visible)
+      alarm_ringtone_settings_screen_.show();
+    else
+      alarm_ringtone_settings_screen_.hide();
   }
-
-  if (state.ringtone_settings_visible) {
-    alarm_ringtone_settings_screen_.show();
-  } else {
-    alarm_ringtone_settings_screen_.hide();
-  }
-
-  if (alarm_service_.hasRingingAlarm())
+  if (alarms_changed) alarm_list_screen_.render(alarm_service_);
+  if (ringing)
     alarm_ringing_overlay_.show();
   else
     alarm_ringing_overlay_.hide();
+  rememberRenderedState();
 }
 
 void ClockApp::applyControllerEffects(const ClockAppEffects& effects) {
@@ -242,14 +261,45 @@ void ClockApp::applyControllerEffects(const ClockAppEffects& effects) {
     buzzer_active_ = true;
   }
 
-  if (effects.update_buzzer) {
-    alarm_buzzer_.update();
-  }
-
   if (effects.stop_buzzer && buzzer_active_) {
     alarm_buzzer_.stop();
     buzzer_active_ = false;
   }
+}
+
+bool ClockApp::renderedStateMatchesCurrent() const {
+  if (!has_rendered_state_) return false;
+  const ClockAppState& current = controller_.state();
+  return strcmp(rendered_state_.clock_text, current.clock_text) == 0 &&
+         strcmp(rendered_state_.date_text, current.date_text) == 0 &&
+         strcmp(rendered_state_.next_alarm_text, current.next_alarm_text) == 0 &&
+         strcmp(rendered_state_.alarm_text, current.alarm_text) == 0 &&
+         strcmp(rendered_state_.primary_button_text, current.primary_button_text) == 0 &&
+         rendered_state_.alarm_enabled == current.alarm_enabled &&
+         rendered_state_.alarm_settings_visible == current.alarm_settings_visible &&
+         rendered_state_.ringtone_settings_visible == current.ringtone_settings_visible;
+}
+
+bool ClockApp::renderedAlarmsMatchCurrent() const {
+  if (!has_rendered_state_ || rendered_alarm_count_ != alarm_service_.count()) return false;
+  for (uint8_t i = 0; i < rendered_alarm_count_; ++i) {
+    const RenderedAlarm& rendered = rendered_alarms_[i];
+    if (rendered.hour != alarm_service_.hour(i) || rendered.minute != alarm_service_.minute(i) ||
+        rendered.enabled != alarm_service_.isEnabled(i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void ClockApp::rememberRenderedState() {
+  rendered_state_ = controller_.state();
+  rendered_alarm_count_ = alarm_service_.count();
+  for (uint8_t i = 0; i < rendered_alarm_count_; ++i) {
+    rendered_alarms_[i] = {alarm_service_.hour(i), alarm_service_.minute(i), alarm_service_.isEnabled(i)};
+  }
+  rendered_ringing_overlay_visible_ = alarm_service_.hasRingingAlarm();
+  has_rendered_state_ = true;
 }
 
 void ClockApp::stopRingtonePreview() {
