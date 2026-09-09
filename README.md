@@ -8,8 +8,8 @@ The same application can also run in an LVGL/X11 desktop window for UI developme
 
 - Current time and date synchronized with NTP on the ESP32
 - Up to four alarms, each with its own enable state, time, repeat days, and ringtone
-- Persisted master alarm-volume control, shared by all alarms
-- Four built-in melodies: Classic Chime, Gentle Pulse, Sunrise, and Urgent
+- Persisted master alarm-volume control, shared by all alarms; its 1–100 setting maps to a 1–10% ESP32 PWM output range
+- Four built-in melodies: Soft Chime, Gentle Bell, Rising Wake, and Persistent
 - Global ringing overlay with Dismiss and 10-minute Snooze actions
 - Alarm configuration persisted in ESP32 NVS across power loss
 - Touch-oriented screens for the clock, alarm list, alarm editor, deletion confirmation, and ringtone selection

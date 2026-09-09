@@ -8,7 +8,7 @@
 namespace {
 constexpr Ui::ButtonSize kHeaderSaveButtonSize{60, 32};
 constexpr Ui::ButtonSize kControlButtonSize{32, 32};
-constexpr const char* kRingtoneNames[] = {"Classic Chime", "Gentle Pulse", "Sunrise", "Urgent"};
+constexpr const char* kRingtoneNames[] = {"Soft Chime", "Gentle Bell", "Rising Wake", "Persistent"};
 }  // namespace
 
 AlarmRingtoneSettingsScreen::AlarmRingtoneSettingsScreen(AlarmRingtoneSettingsScreenListener& listener)

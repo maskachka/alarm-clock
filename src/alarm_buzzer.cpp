@@ -4,7 +4,7 @@
 
 void SilentAlarmBuzzer::begin() {}
 void SilentAlarmBuzzer::setVolume(uint8_t volume) {
-  printf("Alarm buzzer: volume %u%%\n", static_cast<unsigned>(volume));
+  printf("Alarm buzzer: volume %u%% (1-10%% output range)\n", static_cast<unsigned>(volume));
 }
 
 void SilentAlarmBuzzer::start(AlarmRingtone ringtone) {
@@ -27,10 +27,11 @@ struct Melody {
   const Tone* tones;
   size_t length;
 };
-constexpr Tone kClassicChime[] = {{523, 180}, {659, 180}, {784, 180}, {1047, 260}};
-constexpr Tone kGentlePulse[] = {{523, 320}, {0, 160}, {659, 320}, {0, 500}};
-constexpr Tone kSunrise[] = {{392, 150}, {523, 150}, {659, 150}, {784, 150}, {1047, 360}};
-constexpr Tone kUrgent[] = {{880, 100}, {523, 100}, {880, 100}, {523, 100}, {0, 120}};
+// Simple, lower-register patterns work better than rapid note runs on a passive piezo buzzer.
+constexpr Tone kClassicChime[] = {{523, 140}, {0, 120}, {659, 240}, {0, 1400}};
+constexpr Tone kGentlePulse[] = {{440, 180}, {0, 160}, {523, 260}, {0, 1200}};
+constexpr Tone kSunrise[] = {{392, 160}, {0, 90}, {440, 160}, {0, 90}, {523, 280}, {0, 1100}};
+constexpr Tone kUrgent[] = {{494, 170}, {0, 120}, {587, 170}, {0, 120}, {494, 170}, {0, 900}};
 constexpr Melody kMelodies[] = {{kClassicChime, sizeof(kClassicChime) / sizeof(kClassicChime[0])},
                                 {kGentlePulse, sizeof(kGentlePulse) / sizeof(kGentlePulse[0])},
                                 {kSunrise, sizeof(kSunrise) / sizeof(kSunrise[0])},
@@ -47,7 +48,7 @@ Esp32PassiveBuzzer::Esp32PassiveBuzzer(int pin, int channel)
       last_note_change_ms_(0),
       note_index_(0),
       ringtone_(kDefaultAlarmRingtone),
-      volume_(70),
+      volume_(1),
       active_(false),
       initialized_(false) {}
 
@@ -62,7 +63,7 @@ void Esp32PassiveBuzzer::begin() {
 }
 
 void Esp32PassiveBuzzer::setVolume(uint8_t volume) {
-  volume_ = volume > 100 ? 100 : volume;
+  volume_ = volume < 1 ? 1 : (volume > 100 ? 100 : volume);
   if (active_) playCurrentNote();
 }
 
@@ -111,7 +112,8 @@ void Esp32PassiveBuzzer::playCurrentNote() {
 
   const int frequency = melodyFor(ringtone_).tones[note_index_].frequency;
   ledcWriteTone(channel_, frequency);
-  ledcWrite(channel_, frequency == 0 ? 0 : static_cast<uint32_t>(volume_) * 255 / 100);
+  const uint8_t duty_percent = static_cast<uint8_t>(1 + (static_cast<uint16_t>(volume_ - 1) * 9) / 99);
+  ledcWrite(channel_, frequency == 0 ? 0 : static_cast<uint32_t>(duty_percent) * 255 / 100);
   last_note_change_ms_ = millis();
 }
 #endif

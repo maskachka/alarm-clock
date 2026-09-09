@@ -25,12 +25,12 @@ void VolumeSettingsScreen::build(lv_obj_t* parent) {
   lv_obj_set_style_text_color(value_, lv_color_hex(UiTheme::kTextPrimary), 0);
   slider_ = lv_slider_create(root_);
   lv_obj_set_width(slider_, LV_PCT(100));
-  lv_slider_set_range(slider_, 0, 100);
+  lv_slider_set_range(slider_, 1, 100);
   lv_obj_add_event_cb(slider_, onSliderChanged, LV_EVENT_VALUE_CHANGED, this);
-  setVolume(70);
+  setVolume(1);
 }
 void VolumeSettingsScreen::setVolume(uint8_t volume) {
-  lv_slider_set_value(slider_, volume > 100 ? 100 : volume, LV_ANIM_OFF);
+  lv_slider_set_value(slider_, volume < 1 ? 1 : (volume > 100 ? 100 : volume), LV_ANIM_OFF);
   updateLabel();
 }
 void VolumeSettingsScreen::show() {

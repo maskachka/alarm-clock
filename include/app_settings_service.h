@@ -6,8 +6,9 @@
 
 class AppSettingsService {
  public:
-  static constexpr uint8_t kDefaultAlarmVolume = 70;
+  static constexpr uint8_t kMinAlarmVolume = 1;
   static constexpr uint8_t kMaxAlarmVolume = 100;
+  static constexpr uint8_t kDefaultAlarmVolume = kMinAlarmVolume;
 
   AppSettingsService();
   explicit AppSettingsService(AppSettingsStorage& storage);

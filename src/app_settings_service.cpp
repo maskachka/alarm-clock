@@ -7,11 +7,13 @@ void AppSettingsService::load() {
   if (storage_ == nullptr) return;
   StoredAppSettings settings = {};
   if (!storage_->load(settings)) return;
-  alarm_volume_ = settings.alarm_volume <= kMaxAlarmVolume ? settings.alarm_volume : kDefaultAlarmVolume;
+  alarm_volume_ = settings.alarm_volume >= kMinAlarmVolume && settings.alarm_volume <= kMaxAlarmVolume
+                      ? settings.alarm_volume
+                      : kDefaultAlarmVolume;
 }
 uint8_t AppSettingsService::alarmVolume() const { return alarm_volume_; }
 void AppSettingsService::setAlarmVolume(uint8_t volume) {
-  alarm_volume_ = volume <= kMaxAlarmVolume ? volume : kMaxAlarmVolume;
+  alarm_volume_ = volume < kMinAlarmVolume ? kMinAlarmVolume : (volume > kMaxAlarmVolume ? kMaxAlarmVolume : volume);
   persist();
 }
 void AppSettingsService::persist() const {

@@ -2,9 +2,9 @@
 
 #include "app_settings_service.h"
 
-void testAppSettingsDefaultsToSeventyPercentVolume() {
+void testAppSettingsDefaultsToOnePercentVolume() {
   AppSettingsService settings;
-  TEST_ASSERT_EQUAL_UINT8(70, settings.alarmVolume());
+  TEST_ASSERT_EQUAL_UINT8(1, settings.alarmVolume());
 }
 
 void testAppSettingsRestoresPersistedVolume() {
@@ -22,4 +22,10 @@ void testAppSettingsClampsVolumeToOneHundredPercent() {
   AppSettingsService settings;
   settings.setAlarmVolume(120);
   TEST_ASSERT_EQUAL_UINT8(100, settings.alarmVolume());
+}
+
+void testAppSettingsClampsVolumeToOnePercent() {
+  AppSettingsService settings;
+  settings.setAlarmVolume(0);
+  TEST_ASSERT_EQUAL_UINT8(1, settings.alarmVolume());
 }
